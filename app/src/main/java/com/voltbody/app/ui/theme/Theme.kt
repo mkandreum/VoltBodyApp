@@ -1,11 +1,16 @@
 package com.voltbody.app.ui.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.voltbody.app.domain.model.AppTheme
@@ -93,6 +98,11 @@ private fun buildColorScheme(c: VoltBodyColors) = darkColorScheme(
 )
 
 // ── Root composable ───────────────────────────────────────────────────────────
+// FIX: Removed full-app Brush.verticalGradient which forced a gradient repaint
+// on every frame across all composables — expensive on OLED & non-OLED alike.
+// Solid bg color is more battery-friendly on OLED (true black = 0 pixels lit)
+// and avoids the generic "AI app" gradient-background aesthetic.
+// Section-level gradients (hero, motivation card, etc.) are preserved as-is.
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -110,24 +120,14 @@ fun VoltBodyTheme(
             shapes = VoltBodyShapes,
             motionScheme = MotionScheme.expressive(),
             content = {
+                // FIX: Solid background instead of vertical gradient.
+                // The bg token is already a near-black, so OLED screens
+                // benefit from maximum pixel-off savings.
                 Surface(
-                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                    color = Color.Transparent
+                    modifier = Modifier.fillMaxSize(),
+                    color = vbColors.bg
                 ) {
-                    Box(
-                        modifier = androidx.compose.ui.Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        vbColors.bg,
-                                        Color(0xFF000000)
-                                    )
-                                )
-                            )
-                    ) {
-                        content()
-                    }
+                    content()
                 }
             }
         )

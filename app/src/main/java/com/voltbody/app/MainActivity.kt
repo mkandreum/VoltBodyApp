@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.voltbody.app.domain.model.AppTab
 import com.voltbody.app.service.VoltBodyNotificationService
@@ -80,6 +79,8 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
         Scaffold(
             containerColor = androidx.compose.ui.graphics.Color.Transparent,
             contentColor = LocalVoltBodyColors.current.textPrimary,
+            // FIX: Use Zero insets in Scaffold so we can control padding manually.
+            // This prevents double-application of system bar insets.
             contentWindowInsets = WindowInsets(0)
         ) { innerPadding ->
             VoltBodyNavHost(
@@ -91,12 +92,16 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
             )
         }
 
-        // Floating pill nav — outside Scaffold so it truly floats
+        // FIX: BottomNav floats outside Scaffold and respects navigation bar insets.
+        // navigationBarsPadding() ensures it never overlaps the system gesture bar
+        // on Android 10+ gesture navigation and the home indicator on Android 15+.
         AnimatedVisibility(
             visible = showBottomNav,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()  // FIX: edge-to-edge system bar clearance
         ) {
             VoltBodyBottomNav(
                 currentTab = currentTab,
@@ -111,6 +116,7 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
             )
         }
 
+        // Toast overlay respects status bar
         ToastOverlay(
             toasts = toasts,
             onDismiss = appViewModel::dismissToast,
@@ -121,13 +127,12 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
     }
 }
 
-// Sprint 3 — AI_COACH added to routing
 private fun AppTab.toRoute() = when (this) {
-    AppTab.HOME -> Screen.Home.route
-    AppTab.WORKOUT -> Screen.Workout.route
-    AppTab.DIET -> Screen.Diet.route
+    AppTab.HOME     -> Screen.Home.route
+    AppTab.WORKOUT  -> Screen.Workout.route
+    AppTab.DIET     -> Screen.Diet.route
     AppTab.CALENDAR -> Screen.Calendar.route
-    AppTab.PROFILE -> Screen.Profile.route
+    AppTab.PROFILE  -> Screen.Profile.route
     AppTab.AI_COACH -> Screen.AiCoach.route
 }
 

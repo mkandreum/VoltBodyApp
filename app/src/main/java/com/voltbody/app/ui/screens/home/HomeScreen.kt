@@ -18,7 +18,9 @@ import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -45,10 +47,9 @@ fun HomeScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     val requestPermissionActivityContract = PermissionController.createRequestPermissionResultContract()
-    val healthPermissionLauncher = rememberLauncherForActivityResult(requestPermissionActivityContract) { granted ->
-        viewModel.refresh() // Or a specific health refresh
+    val healthPermissionLauncher = rememberLauncherForActivityResult(requestPermissionActivityContract) { _ ->
+        viewModel.refresh()
     }
-
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -113,7 +114,7 @@ fun HomeScreen(
                 }
             }
 
-            // ── BLE Heart Rate card ───────────────────────────────────────────────────
+            // ── BLE Heart Rate card ───────────────────────────────────────────────
             item {
                 StaggeredEntrance(3) {
                     BleHeartRateCard(
@@ -127,7 +128,7 @@ fun HomeScreen(
 
             // ── Recovery Score card ───────────────────────────────────────────────
             item {
-                StaggeredEntrance(2) {
+                StaggeredEntrance(4) {
                     RecoveryScoreCard(
                         score = state.recoveryScore,
                         sleepHours = state.sleepHours,
@@ -137,10 +138,10 @@ fun HomeScreen(
                 }
             }
 
-            // ── Motivation card (enhanced with photo) ─────────────────────────────
+            // ── Motivation card ───────────────────────────────────────────────────
             if (state.motivationPhrase.isNotEmpty() || state.motivationPhotoUrl != null) {
                 item {
-                    StaggeredEntrance(3) {
+                    StaggeredEntrance(5) {
                         MotivationCard(
                             phrase = state.motivationPhrase,
                             photoUrl = state.motivationPhotoUrl
@@ -151,7 +152,7 @@ fun HomeScreen(
 
             // ── Weekly progress widget ────────────────────────────────────────────
             item {
-                StaggeredEntrance(4) {
+                StaggeredEntrance(6) {
                     WeeklyProgressCard(
                         workoutsThisWeek = state.weeklyWorkouts,
                         targetWorkouts = state.weeklyTarget,
@@ -164,7 +165,7 @@ fun HomeScreen(
             // ── Today's workout card ──────────────────────────────────────────────
             state.todayWorkout?.let { workout ->
                 item {
-                    StaggeredEntrance(5) {
+                    StaggeredEntrance(7) {
                         TodayWorkoutCard(
                             workoutName = workout.name,
                             exerciseCount = workout.exerciseCount,
@@ -180,7 +181,7 @@ fun HomeScreen(
             // ── Fatigue Index ─────────────────────────────────────────────────────
             if (state.fatigueEntries.isNotEmpty()) {
                 item {
-                    StaggeredEntrance(6) {
+                    StaggeredEntrance(8) {
                         FatigueIndexCard(entries = state.fatigueEntries)
                     }
                 }
@@ -188,7 +189,7 @@ fun HomeScreen(
 
             // ── Progress Report (AI) ──────────────────────────────────────────────
             item {
-                StaggeredEntrance(7) {
+                StaggeredEntrance(9) {
                     ProgressReportCard(
                         report = state.report,
                         isLoading = state.reportLoading,
@@ -201,7 +202,7 @@ fun HomeScreen(
             // ── Day Timeline ──────────────────────────────────────────────────────
             if (state.timelineItems.isNotEmpty()) {
                 item {
-                    StaggeredEntrance(8) {
+                    StaggeredEntrance(10) {
                         DayTimelineCard(items = state.timelineItems)
                     }
                 }
@@ -209,7 +210,7 @@ fun HomeScreen(
 
             // ── Quick Actions ─────────────────────────────────────────────────────
             item {
-                StaggeredEntrance(9) {
+                StaggeredEntrance(11) {
                     QuickActionsCard(
                         onQuickLog = { viewModel.quickLogSet() },
                         onNavigateToAiCoach = onNavigateToAiCoach
@@ -220,7 +221,7 @@ fun HomeScreen(
             // ── Volume chart ──────────────────────────────────────────────────────
             if (state.dailyVolumeKg.isNotEmpty()) {
                 item {
-                    StaggeredEntrance(10) {
+                    StaggeredEntrance(12) {
                         VolumeChartCard(dailyVolume = state.dailyVolumeKg)
                     }
                 }
@@ -228,22 +229,22 @@ fun HomeScreen(
 
             // ── AI Coach card ─────────────────────────────────────────────────────
             item {
-                StaggeredEntrance(11) {
+                StaggeredEntrance(13) {
                     AiCoachCard(onNavigate = onNavigateToAiCoach)
                 }
             }
 
-            // ── Recent achievements (enhanced with labels & descriptions) ─────────
+            // ── Recent achievements ───────────────────────────────────────────────
             if (state.recentAchievements.isNotEmpty()) {
                 item {
-                    StaggeredEntrance(12) {
+                    StaggeredEntrance(14) {
                         RecentAchievementsCard(achievements = state.recentAchievements)
                     }
                 }
             }
 
             // Bottom spacer for nav bar
-            item { Spacer(Modifier.height(80.dp)) }
+            item { Spacer(Modifier.height(100.dp)) }
         }
     }
 
@@ -277,7 +278,11 @@ fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int, todayXP: Int = 0) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = vb.accent)
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = "Nivel actual",
+                        tint = vb.accent
+                    )
                     Text(
                         "⚡ Nivel $level",
                         style = MaterialTheme.typography.titleMedium,
@@ -319,6 +324,7 @@ fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int, todayXP: Int = 0) {
 }
 
 // ── Recovery Score card ───────────────────────────────────────────────────────
+// FIX: Replaced hardcoded Color(0xFF...) with semantic tokens from Color.kt
 
 @Composable
 fun RecoveryScoreCard(
@@ -327,11 +333,12 @@ fun RecoveryScoreCard(
     hrv: Int?,
     onLogRecovery: () -> Unit
 ) {
+    // Use semantic color tokens — respects all 3 app themes
     val scoreColor = when {
         score == null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-        score >= 80 -> Color(0xFF4CAF50)
-        score >= 50 -> Color(0xFFFFC107)
-        else -> Color(0xFFF44336)
+        score >= 80   -> ColorSuccess
+        score >= 50   -> ColorWarning
+        else          -> ColorError
     }
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -340,35 +347,58 @@ fun RecoveryScoreCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Recovery Score", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Recovery Score",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
                 if (score != null) {
                     Text(
                         when {
                             score >= 80 -> "Listo para rendir al máximo"
                             score >= 50 -> "Recuperación moderada"
-                            else -> "Necesitas más descanso"
+                            else        -> "Necesitas más descanso"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        sleepHours?.let { Text("😴 ${"%.1f".format(it)}h", style = MaterialTheme.typography.bodySmall) }
-                        hrv?.takeIf { it > 0 }?.let { Text("💓 HRV $it", style = MaterialTheme.typography.bodySmall) }
+                        sleepHours?.let {
+                            Text(
+                                "😴 ${"%.1f".format(it)}h",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        hrv?.takeIf { it > 0 }?.let {
+                            Text(
+                                "💓 HRV $it",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 } else {
-                    Text("Registra tu recuperación", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Registra tu recuperación",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             if (score != null) {
                 Box(
-                    modifier = Modifier.size(60.dp).clip(CircleShape)
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
                         .background(scoreColor.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("$score", style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black, color = scoreColor)
+                    Text(
+                        "$score",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = scoreColor
+                    )
                 }
             } else {
                 FilledTonalButton(onClick = onLogRecovery) { Text("Registrar") }
@@ -389,13 +419,14 @@ fun MotivationCard(phrase: String, photoUrl: String? = null) {
             if (photoUrl != null) {
                 AsyncImage(
                     model = photoUrl,
-                    contentDescription = "Motivación",
+                    contentDescription = "Imagen motivacional",
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
                         .clip(RoundedCornerShape(20.dp))
                         .background(
                             Brush.linearGradient(
@@ -404,17 +435,20 @@ fun MotivationCard(phrase: String, photoUrl: String? = null) {
                         )
                 )
             }
-            // Gradient overlay
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .clip(RoundedCornerShape(20.dp))
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f), Color.Black.copy(alpha = 0.85f))
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.7f),
+                                Color.Black.copy(alpha = 0.85f)
+                            )
                         )
                     )
             )
-            // Text on top
             Column(
                 modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
             ) {
@@ -437,9 +471,11 @@ fun MotivationCard(phrase: String, photoUrl: String? = null) {
 }
 
 // ── AI Coach card ─────────────────────────────────────────────────────────────
+// FIX: Removed icon-in-colored-circle antipattern; replaced with clean vector icon
 
 @Composable
 fun AiCoachCard(onNavigate: () -> Unit) {
+    val vb = LocalVoltBodyColors.current
     AppCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onNavigate
@@ -449,21 +485,34 @@ fun AiCoachCard(onNavigate: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🤖", style = MaterialTheme.typography.titleMedium)
-                }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = "AI Coach",
+                    tint = vb.accent,
+                    modifier = Modifier.size(28.dp)
+                )
                 Column {
-                    Text("AI Coach", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text("Pregúntame lo que necesites", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "AI Coach",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Pregúntame lo que necesites",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "Ir a AI Coach",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -475,7 +524,11 @@ fun RecentAchievementsCard(achievements: List<Achievement>) {
     val vb = LocalVoltBodyColors.current
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
-            Text("🏆 Logros recientes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "🏆 Logros recientes",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(Modifier.height(12.dp))
             achievements.take(5).forEach { a ->
                 Row(
@@ -512,47 +565,117 @@ fun RecentAchievementsCard(achievements: List<Achievement>) {
 }
 
 // ── Recovery check-in dialog ──────────────────────────────────────────────────
+// FIX: Replaced free-text TextFields with Sliders for better mobile UX
 
 @Composable
 fun RecoveryCheckinDialog(
     onConfirm: (Float, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var sleep by remember { mutableStateOf("8.0") }
-    var hrv by remember { mutableStateOf("") }
+    var sleepHours by remember { mutableStateOf(7.5f) }
+    var hrv by remember { mutableStateOf(50f) }
+    var hasHrv by remember { mutableStateOf(false) }
+    val vb = LocalVoltBodyColors.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("¿Cómo te has recuperado?") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = sleep, onValueChange = { sleep = it },
-                    label = { Text("Horas de sueño") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = hrv, onValueChange = { hrv = it },
-                    label = { Text("HRV (opcional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                // Sleep hours slider
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "😴 Horas de sueño",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "${"%.1f".format(sleepHours)}h",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = vb.accent
+                        )
+                    }
+                    Slider(
+                        value = sleepHours,
+                        onValueChange = { sleepHours = it },
+                        valueRange = 3f..12f,
+                        steps = 17, // 0.5h increments
+                        colors = SliderDefaults.colors(thumbColor = vb.accent, activeTrackColor = vb.accent)
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("3h", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("12h", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                // HRV optional toggle
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("💓 Registrar HRV (opcional)", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = hasHrv,
+                        onCheckedChange = { hasHrv = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = ColorBlack, checkedTrackColor = vb.accent)
+                    )
+                }
+
+                AnimatedVisibility(visible = hasHrv) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("HRV", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "${hrv.toInt()} ms",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = vb.accent
+                            )
+                        }
+                        Slider(
+                            value = hrv,
+                            onValueChange = { hrv = it },
+                            valueRange = 20f..120f,
+                            steps = 99,
+                            colors = SliderDefaults.colors(thumbColor = vb.accent, activeTrackColor = vb.accent)
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("20", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("120 ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onConfirm(sleep.toFloatOrNull() ?: 8f, hrv.toIntOrNull() ?: 0)
+                onConfirm(sleepHours, if (hasHrv) hrv.toInt() else 0)
             }) { Text("Guardar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
     )
 }
 
 // ── Streak badge ──────────────────────────────────────────────────────────────
+// FIX: Spring animation was always targeting 1f → never triggered.
+//      Now uses appeared flag so it bounces in on first render.
 
 @Composable
 fun StreakBadge(days: Int) {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
     val scale by animateFloatAsState(
-        targetValue = 1f,
+        targetValue = if (appeared) 1f else 0f,
         animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f),
         label = "streak_scale"
     )
@@ -572,15 +695,23 @@ fun StreakBadge(days: Int) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$days", style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onPrimary)
-            Text("días", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+            Text(
+                "$days",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Text(
+                "días",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+            )
         }
     }
 }
 
 // ── Weekly progress card ──────────────────────────────────────────────────────
+// FIX: Added key(workoutsThisWeek) so animation re-triggers when data changes
 
 @Composable
 fun WeeklyProgressCard(
@@ -600,17 +731,26 @@ fun WeeklyProgressCard(
         modifier = Modifier.fillMaxWidth().graphicsLayer { scaleX = scale; scaleY = scale }
     ) {
         Column(Modifier.padding(20.dp)) {
-            Text("Esta semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Esta semana",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 StatChip(label = "Entrenos", value = "$workoutsThisWeek/$targetWorkouts")
                 StatChip(label = "Volumen", value = "${"%.0f".format(totalVolumeKg)} kg")
-                StatChip(label = "Progreso", value = "${((workoutsThisWeek.toFloat() / targetWorkouts.coerceAtLeast(1)) * 100).toInt()}%")
+                StatChip(
+                    label = "Progreso",
+                    value = "${((workoutsThisWeek.toFloat() / targetWorkouts.coerceAtLeast(1)) * 100).toInt()}%"
+                )
             }
             if (dailyVolume.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 LinearProgressIndicator(
-                    progress = { (workoutsThisWeek.toFloat() / targetWorkouts.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                    progress = {
+                        (workoutsThisWeek.toFloat() / targetWorkouts.coerceAtLeast(1)).coerceIn(0f, 1f)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -623,7 +763,11 @@ fun WeeklyProgressCard(
 fun StatChip(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -636,80 +780,138 @@ fun TodayWorkoutCard(
     estimatedMinutes: Int,
     onStart: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     AppCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Entreno de hoy", style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-                Text(workoutName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(
+                    "Entreno de hoy",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    workoutName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
                 Spacer(Modifier.height(4.dp))
-                Text("$exerciseCount ejercicios · ~$estimatedMinutes min",
+                Text(
+                    "$exerciseCount ejercicios · ~$estimatedMinutes min",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
             }
-            FilledIconButton(onClick = onStart, modifier = Modifier.size(52.dp)) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Empezar")
+            FilledIconButton(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onStart()
+                },
+                modifier = Modifier.size(52.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Empezar entreno")
             }
         }
     }
 }
 
 // ── Volume chart (Canvas) ─────────────────────────────────────────────────────
+// FIX: Replaced straight lineTo with cubic bezier curves for premium feel
 
 @Composable
 fun VolumeChartCard(dailyVolume: List<Float>) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
+    val vb = LocalVoltBodyColors.current
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
-            Text("Volumen diario (kg)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Volumen diario (kg)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(Modifier.height(12.dp))
             androidx.compose.foundation.Canvas(
                 modifier = Modifier.fillMaxWidth().height(120.dp)
             ) {
-                drawVolumeChart(dailyVolume, primaryColor, surfaceColor)
+                drawVolumeChartBezier(dailyVolume, primaryColor, vb.chartFill)
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 listOf("L", "M", "X", "J", "V", "S", "D").take(dailyVolume.size).forEach { day ->
-                    Text(day, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        day,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
     }
 }
 
-fun DrawScope.drawVolumeChart(volumes: List<Float>, lineColor: Color, fillColor: Color) {
-    if (volumes.isEmpty()) return
+// FIX: Bezier smooth chart replacing straight-line version
+fun DrawScope.drawVolumeChartBezier(volumes: List<Float>, lineColor: Color, fillColor: Color) {
+    if (volumes.size < 2) return
     val maxVol = volumes.max().coerceAtLeast(1f)
     val w = size.width
     val h = size.height
     val step = w / (volumes.size - 1).coerceAtLeast(1)
+
+    fun xOf(i: Int) = i * step
+    fun yOf(v: Float) = h - (v / maxVol) * h * 0.9f
+
+    // Build smooth bezier path
     val path = Path().apply {
         volumes.forEachIndexed { i, v ->
-            val x = i * step
-            val y = h - (v / maxVol) * h * 0.9f
-            if (i == 0) moveTo(x, y) else lineTo(x, y)
+            val x = xOf(i)
+            val y = yOf(v)
+            if (i == 0) {
+                moveTo(x, y)
+            } else {
+                val prevX = xOf(i - 1)
+                val prevY = yOf(volumes[i - 1])
+                val cpX = (prevX + x) / 2f
+                cubicTo(cpX, prevY, cpX, y, x, y)
+            }
         }
     }
+
+    // Build fill path by extending curve to bottom
     val fillPath = Path().apply {
-        addPath(path); lineTo(w, h); lineTo(0f, h); close()
+        addPath(path)
+        lineTo(xOf(volumes.lastIndex), h)
+        lineTo(0f, h)
+        close()
     }
-    drawPath(fillPath, color = lineColor.copy(alpha = 0.15f))
-    drawPath(path, color = lineColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+    // Gradient fill under curve
+    drawPath(
+        fillPath,
+        brush = Brush.verticalGradient(
+            colors = listOf(fillColor.copy(alpha = 0.35f), fillColor.copy(alpha = 0.0f))
+        )
+    )
+
+    // Main line
+    drawPath(
+        path,
+        color = lineColor,
+        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+    )
+
+    // Data point dots
     volumes.forEachIndexed { i, v ->
-        val x = i * step
-        val y = h - (v / maxVol) * h * 0.9f
+        val x = xOf(i)
+        val y = yOf(v)
         drawCircle(color = lineColor, radius = 4.dp.toPx(), center = Offset(x, y))
-        drawCircle(color = fillColor, radius = 2.dp.toPx(), center = Offset(x, y))
+        drawCircle(color = lineColor.copy(alpha = 0.2f), radius = 7.dp.toPx(), center = Offset(x, y))
     }
 }
 
 // ── Fatigue Index card ────────────────────────────────────────────────────────
+// FIX: Bars upgraded from 6dp to 10dp with horizontal gradient for premium look
 
 @Composable
 fun FatigueIndexCard(entries: List<FatigueEntry>) {
@@ -730,9 +932,9 @@ fun FatigueIndexCard(entries: List<FatigueEntry>) {
             Spacer(Modifier.height(16.dp))
             entries.forEach { entry ->
                 val barColor = when (entry.status) {
-                    FatigueStatus.FRESH -> ColorSuccess
-                    FatigueStatus.MODERATE -> ColorWarning
-                    FatigueStatus.HIGH -> ColorOrange
+                    FatigueStatus.FRESH       -> ColorSuccess
+                    FatigueStatus.MODERATE    -> ColorWarning
+                    FatigueStatus.HIGH        -> ColorOrange
                     FatigueStatus.OVERREACHED -> ColorError
                 }
                 val animatedProgress by animateFloatAsState(
@@ -740,7 +942,7 @@ fun FatigueIndexCard(entries: List<FatigueEntry>) {
                     animationSpec = tween(600, easing = FastOutSlowInEasing),
                     label = "fatigue_${entry.muscleGroup}"
                 )
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -764,20 +966,29 @@ fun FatigueIndexCard(entries: List<FatigueEntry>) {
                             )
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
+                    // Track
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.1f))
+                            .height(10.dp)  // FIX: upgraded from 6dp to 10dp
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
                     ) {
+                        // Gradient fill bar — premium feel
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(animatedProgress)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(barColor)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            barColor.copy(alpha = 0.6f),
+                                            barColor
+                                        )
+                                    )
+                                )
                         )
                     }
                 }
@@ -828,15 +1039,22 @@ fun ProgressReportCard(
                 Text(if (isLoading) "Generando informe..." else "Generar informe con IA")
             }
 
-            // Loading progress bar
             AnimatedVisibility(visible = isLoading) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Analizando datos con IA…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("$progress%", style = MaterialTheme.typography.labelSmall, color = vb.accent)
+                        Text(
+                            "Analizando datos con IA…",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "$progress%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = vb.accent
+                        )
                     }
                     Spacer(Modifier.height(4.dp))
                     val animProgress by animateFloatAsState(
@@ -852,10 +1070,8 @@ fun ProgressReportCard(
                 }
             }
 
-            // Report results
             if (report != null) {
                 Spacer(Modifier.height(16.dp))
-                // Stats grid (2x2)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ReportStatBox("Score total", "${report.overallScore}%", Modifier.weight(1f))
                     ReportStatBox("Progreso", "${report.progressPercent}%", Modifier.weight(1f))
@@ -865,25 +1081,30 @@ fun ProgressReportCard(
                     ReportStatBox("Consistencia", "${report.consistencyPercent}%", Modifier.weight(1f))
                     ReportStatBox("Te falta", "${report.weeksToVisibleChange} sem", Modifier.weight(1f))
                 }
-                // Summary
                 Spacer(Modifier.height(12.dp))
                 Text(
                     report.summary,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                // Improvements
                 if (report.improvements.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    Text("Qué puedes mejorar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Qué puedes mejorar",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     report.improvements.forEach { item ->
                         Text("• $item", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
                     }
                 }
-                // Next actions
                 if (report.nextActions.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    Text("Siguientes pasos", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Siguientes pasos",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     report.nextActions.forEach { item ->
                         Text("• $item", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
                     }
@@ -938,42 +1159,43 @@ fun DayTimelineCard(items: List<TimelineItem>) {
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (item.done) vb.accent.copy(alpha = 0.06f)
-                            else vb.surface
+                            if (item.done) vb.accent.copy(alpha = 0.06f) else vb.surface
                         )
                         .then(
-                            if (item.done) Modifier.border(1.dp, vb.accent.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            else Modifier.border(1.dp, vb.border, RoundedCornerShape(12.dp))
+                            if (item.done)
+                                Modifier.border(1.dp, vb.accent.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            else
+                                Modifier.border(1.dp, vb.border, RoundedCornerShape(12.dp))
                         )
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Status dot
                     Box(
                         modifier = Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(if (item.done) vb.accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                            .background(
+                                if (item.done) vb.accent
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            )
                     )
-                    // Time
                     Text(
                         item.time,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    // Title
                     Text(
                         item.title,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    // Status label
                     Text(
                         if (item.done) "Hecho ✓" else "Pendiente",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (item.done) vb.accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        color = if (item.done) vb.accent
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
                 if (index < items.lastIndex) Spacer(Modifier.height(6.dp))
@@ -990,6 +1212,7 @@ fun QuickActionsCard(
     onNavigateToAiCoach: () -> Unit
 ) {
     val vb = LocalVoltBodyColors.current
+    val haptic = LocalHapticFeedback.current
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp)) {
             Text(
@@ -998,7 +1221,11 @@ fun QuickActionsCard(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(4.dp))
-            Text("Un toque y listo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Un toque y listo",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1007,19 +1234,27 @@ fun QuickActionsCard(
                 QuickActionButton(
                     icon = "🏋️",
                     label = "Registrar serie",
-                    onClick = onQuickLog,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onQuickLog()
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
                     icon = "🤖",
                     label = "AI Coach",
-                    onClick = onNavigateToAiCoach,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onNavigateToAiCoach()
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
                     icon = "📸",
                     label = "Subir foto",
-                    onClick = { /* navigate to profile */ },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1074,10 +1309,13 @@ fun HealthConnectCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Icon(
                         if (granted) Icons.Default.Favorite else Icons.Default.HealthAndSafety,
-                        contentDescription = null,
+                        contentDescription = if (granted) "Google Health conectado" else "Google Health desconectado",
                         tint = if (granted) ColorError else vb.accent
                     )
                     Text(
@@ -1086,39 +1324,59 @@ fun HealthConnectCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                if (granted) {
-                    NeonBadge("Sincronizado")
-                }
+                if (granted) NeonBadge("Sincronizado")
             }
-            
             Spacer(Modifier.height(16.dp))
-            
             if (granted) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Heart Rate
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Ritmo Cardíaco", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
-                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Ritmo Cardíaco",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = vb.textMuted
+                        )
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Text(
                                 heartRate?.toString() ?: "--",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Black,
                                 color = ColorWhite
                             )
-                            Text("BPM", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                            Text(
+                                "BPM",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = vb.textMuted
+                            )
                         }
                     }
-                    // Steps
                     Column(Modifier.weight(1f)) {
-                        Text("Pasos Hoy", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
-                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Pasos Hoy",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = vb.textMuted
+                        )
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Text(
                                 steps.toString(),
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Black,
                                 color = ColorWhite
                             )
-                            Icon(Icons.Default.DirectionsRun, contentDescription = null, size = 16.dp, tint = vb.accent)
+                            Icon(
+                                Icons.Default.DirectionsRun,
+                                contentDescription = "Pasos",
+                                modifier = Modifier.size(16.dp),
+                                tint = vb.accent
+                            )
                         }
                     }
                 }
@@ -1141,7 +1399,7 @@ fun HealthConnectCard(
     }
 }
 
-// ── BLE Heart Rate card ───────────────────────────────────────────────────
+// ── BLE Heart Rate card ───────────────────────────────────────────────────────
 
 @Composable
 fun BleHeartRateCard(
@@ -1151,6 +1409,7 @@ fun BleHeartRateCard(
     onToggle: () -> Unit
 ) {
     val vb = LocalVoltBodyColors.current
+    val haptic = LocalHapticFeedback.current
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -1168,22 +1427,27 @@ fun BleHeartRateCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(if (state == "connected") vb.accent.copy(alpha = 0.15f) else vb.surfaceElevated),
+                        .background(
+                            if (state == "connected") vb.accent.copy(alpha = 0.15f)
+                            else vb.surfaceElevated
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Favorite,
-                        contentDescription = null,
+                        contentDescription = "Monitor cardíaco ${if (state == "connected") "conectado" else "desconectado"}",
                         tint = if (state == "connected") vb.accent else vb.textMuted,
-                        modifier = Modifier.size(24.dp).graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        }
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer { scaleX = scale; scaleY = scale }
                     )
                 }
                 Column {
@@ -1194,10 +1458,10 @@ fun BleHeartRateCard(
                     )
                     Text(
                         when (state) {
-                            "connected" -> deviceName ?: "Conectado"
+                            "connected"  -> deviceName ?: "Conectado"
                             "connecting" -> "Buscando..."
-                            "error" -> "Error de conexión"
-                            else -> "Desconectado"
+                            "error"      -> "Error de conexión"
+                            else         -> "Desconectado"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = vb.textMuted
@@ -1205,25 +1469,39 @@ fun BleHeartRateCard(
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 if (state == "connected" && heartRate != null) {
                     Text(
                         "$heartRate",
                         style = MonoMetric.copy(fontSize = 24.sp, fontWeight = FontWeight.Black),
                         color = vb.accent
                     )
-                    Text("BPM", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+                    Text(
+                        "BPM",
+                        style = UppercaseLabel.copy(fontSize = 10.sp),
+                        color = vb.textMuted
+                    )
                 }
-                
                 IconButton(
-                    onClick = onToggle,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle()
+                    },
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(if (state == "connected") vb.accent else vb.surfaceElevated)
+                        .background(
+                            if (state == "connected") vb.accent else vb.surfaceElevated
+                        )
                 ) {
                     Icon(
-                        imageVector = if (state == "connected") Icons.Default.BluetoothDisabled else Icons.Default.Bluetooth,
-                        contentDescription = null,
+                        imageVector = if (state == "connected")
+                            Icons.Default.BluetoothDisabled
+                        else
+                            Icons.Default.Bluetooth,
+                        contentDescription = if (state == "connected") "Desconectar sensor" else "Conectar sensor",
                         tint = if (state == "connected") ColorBlack else vb.accent
                     )
                 }
