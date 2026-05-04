@@ -27,6 +27,12 @@ import com.voltbody.app.ui.theme.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+// ── Bottom nav pill height + extra breathing room ─────────────────────────────
+// The floating pill nav is ~72 dp tall; we add 16 dp extra so the last card
+// never hides behind it. This constant is intentionally defined here rather
+// than shared globally so each screen can tune its own clearance.
+private val BOTTOM_NAV_CLEARANCE = 88.dp
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
@@ -43,8 +49,17 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            // Draw content behind the status bar; statusBarsPadding() adds
+            // the exact inset so text is never hidden under the clock/icons.
+            .statusBarsPadding()
             .padding(horizontal = 16.dp)
-            .padding(top = 60.dp, bottom = 120.dp),
+            // Top padding: a bit of breathing room below the status bar.
+            .padding(top = 16.dp)
+            // Bottom padding: clear the floating bottom nav + nav bar inset.
+            // navigationBarsPadding() handles gesture nav / 3-button nav bar;
+            // BOTTOM_NAV_CLEARANCE adds space above that for the pill itself.
+            .navigationBarsPadding()
+            .padding(bottom = BOTTOM_NAV_CLEARANCE),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ── Header greeting ───────────────────────────────────────────────────
@@ -108,7 +123,7 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader(profile: UserProfile?, motivationPhrase: String) {
     val vb = LocalVoltBodyColors.current
-    val hour = LocalDate.now().let { java.time.LocalTime.now().hour }
+    val hour = java.time.LocalTime.now().hour
     val greeting = when {
         hour < 12 -> "Buenos días"
         hour < 20 -> "Buenas tardes"
@@ -143,21 +158,16 @@ private fun AvatarXpCard(uiState: HomeUiState) {
     val vb = LocalVoltBodyColors.current
     AppCard {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Avatar column
             Box(modifier = Modifier.weight(0.9f)) {
                 uiState.profile?.let { p ->
                     Avatar3D(config = p.avatarConfig, gender = p.gender, modifier = Modifier.height(200.dp))
                 }
             }
-
-            // XP + stats column
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 NeonBadge(text = "NIVEL ${uiState.level}", color = vb.accent)
-
-                // XP Progress bar
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -189,8 +199,6 @@ private fun AvatarXpCard(uiState: HomeUiState) {
                         )
                     }
                 }
-
-                // Body stats
                 if (uiState.profile != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MiniStat("${uiState.profile.weight.toInt()}kg", "Peso", modifier = Modifier.weight(1f))
@@ -236,7 +244,6 @@ private fun RecoveryBannerCard(advice: RecoveryAdvice, score: Int) {
         RecoveryTier.GOOD -> ColorSuccess.copy(alpha = 0.4f)
         RecoveryTier.OPTIMAL -> vb.accent.copy(alpha = 0.4f)
     }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -371,7 +378,6 @@ private fun BleHeartRateCard(
         ),
         label = "pulse"
     )
-
     AppCard {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -441,7 +447,6 @@ private fun AiProgressReportCard(
     AppCard {
         SectionHeader(title = "✨ Informe IA de progreso")
         Spacer(modifier = Modifier.height(8.dp))
-
         if (isLoading) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ShimmerBox(modifier = Modifier.fillMaxWidth().height(20.dp))
