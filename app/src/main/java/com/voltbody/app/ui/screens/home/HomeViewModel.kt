@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.voltbody.app.data.remote.ApiService
 import com.voltbody.app.data.remote.dto.*
+import com.voltbody.app.data.health.HealthConnectManager
+
 import com.voltbody.app.domain.model.*
 import com.voltbody.app.domain.usecase.*
 import com.voltbody.app.ui.viewmodel.AppViewModel
@@ -63,9 +65,12 @@ data class HomeState(
     val reportLoading: Boolean = false,
     val reportProgress: Int = 0,
     val report: ProgressReportResponse? = null,
-    // ── BLE Heart Rate ────────────────────────────────────────────────────────
+    // ── Health Connect ────────────────────────────────────────────────────────
     val heartRate: Int? = null,
-    val bleConnected: Boolean = false,
+    val stepsToday: Long = 0,
+    val healthConnectAvailable: Boolean = false,
+    val healthPermissionsGranted: Boolean = false,
+
     // ── Meta ──────────────────────────────────────────────────────────────────
     val isLoading: Boolean = true,
     val error: String? = null
@@ -81,14 +86,18 @@ data class TodayWorkoutInfo(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val api: ApiService,
-    private val appViewModel: AppViewModel
+    private val appViewModel: AppViewModel,
+    private val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
+
 
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    val healthPermissions = healthConnectManager.permissions
 
     init {
         loadData()
@@ -106,18 +115,41 @@ class HomeViewModel @Inject constructor(
                 computeHomeState(user, profile, routine, logs, diet)
             }.collect { newState ->
                 _state.update { old ->
-                    // Preserve report/BLE/recovery dialog state from old
+                    // Preserve report/health/recovery dialog state from old
                     newState.copy(
                         report = old.report,
                         reportLoading = old.reportLoading,
                         reportProgress = old.reportProgress,
                         showRecoveryDialog = old.showRecoveryDialog,
                         heartRate = old.heartRate,
-                        bleConnected = old.bleConnected
+                        stepsToday = old.stepsToday,
+                        healthConnectAvailable = old.healthConnectAvailable,
+                        healthPermissionsGranted = old.healthPermissionsGranted
                     )
                 }
             }
         }
+
+        // Check Health Connect availability and permissions
+        viewModelScope.launch {
+            val available = healthConnectManager.isAvailable()
+            _state.update { it.copy(healthConnectAvailable = available) }
+            
+            if (available) {
+                while (true) {
+                    val granted = healthConnectManager.hasAllPermissions()
+                    _state.update { it.copy(healthPermissionsGranted = granted) }
+                    
+                    if (granted) {
+                        val hr = healthConnectManager.getLatestHeartRate()
+                        val steps = healthConnectManager.getTodaySteps()
+                        _state.update { it.copy(heartRate = hr, stepsToday = steps) }
+                    }
+                    delay(30_000) // Update every 30s
+                }
+            }
+        }
+
 
         // Also observe achievements, motivation, and recovery
         viewModelScope.launch {

@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.health.connect.client.PermissionController
+
 import com.voltbody.app.data.remote.dto.ProgressReportResponse
 import com.voltbody.app.domain.model.Achievement
 import com.voltbody.app.domain.usecase.FatigueEntry
@@ -40,8 +42,13 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    val requestPermissionActivityContract = PermissionController.createRequestPermissionResultContract()
+    val healthPermissionLauncher = rememberLauncherForActivityResult(requestPermissionActivityContract) { granted ->
+        viewModel.refresh() // Or a specific health refresh
+    }
+
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -87,6 +94,22 @@ fun HomeScreen(
                         xpToNext = state.xpToNext,
                         todayXP = state.todayXP
                     )
+                }
+            }
+
+            // ── Health Connect card ───────────────────────────────────────────────
+            if (state.healthConnectAvailable) {
+                item {
+                    StaggeredEntrance(2) {
+                        HealthConnectCard(
+                            granted = state.healthPermissionsGranted,
+                            heartRate = state.heartRate,
+                            steps = state.stepsToday,
+                            onConnect = {
+                                healthPermissionLauncher.launch(viewModel.healthPermissions)
+                            }
+                        )
+                    }
                 }
             }
 
@@ -1022,3 +1045,86 @@ private fun QuickActionButton(
     }
 }
 
+// ── Health Connect card ───────────────────────────────────────────────────────
+
+@Composable
+fun HealthConnectCard(
+    granted: Boolean,
+    heartRate: Int?,
+    steps: Long,
+    onConnect: () -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(
+                        if (granted) Icons.Default.Favorite else Icons.Default.HealthAndSafety,
+                        contentDescription = null,
+                        tint = if (granted) ColorError else vb.accent
+                    )
+                    Text(
+                        "Google Health",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (granted) {
+                    NeonBadge("Sincronizado")
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            if (granted) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Heart Rate
+                    Column(Modifier.weight(1f)) {
+                        Text("Ritmo Cardíaco", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                heartRate?.toString() ?: "--",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                color = ColorWhite
+                            )
+                            Text("BPM", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        }
+                    }
+                    // Steps
+                    Column(Modifier.weight(1f)) {
+                        Text("Pasos Hoy", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                steps.toString(),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                color = ColorWhite
+                            )
+                            Icon(Icons.Default.DirectionsRun, contentDescription = null, size = 16.dp, tint = vb.accent)
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    "Conecta con Health Connect para sincronizar tus pasos y ritmo cardíaco automáticamente.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = vb.textMuted
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onConnect,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Conectar Google Health")
+                }
+            }
+        }
+    }
+}

@@ -107,8 +107,27 @@ fun DietScreen(
                     }
                 }
 
+                // ── Macro Quick Mode toggle ──────────────────────────────
+                item {
+                    StaggeredEntrance(4) {
+                        MacroQuickModeToggle(
+                            enabled = uiState.isMacroQuickMode,
+                            onToggle = viewModel::toggleMacroQuickMode
+                        )
+                    }
+                }
+
+                if (uiState.isMacroQuickMode) {
+                    item {
+                        StaggeredEntrance(5) {
+                            MacroQuickTable()
+                        }
+                    }
+                }
+
                 // ── Meals ────────────────────────────────────────────────
                 itemsIndexed(diet.meals, key = { _, it -> it.id }) { index, meal ->
+
                     val isEaten = uiState.eatenMealIds.contains(meal.id)
                     StaggeredEntrance(index + 4) {
                         MealCard(
@@ -539,5 +558,72 @@ private fun HydrationCard(glassCount: Int, onAddGlass: () -> Unit, onRemoveGlass
                 )
             }
         }
+    }
+}
+    }
+}
+
+@Composable
+private fun MacroQuickModeToggle(enabled: Boolean, onToggle: () -> Unit) {
+    val vb = LocalVoltBodyColors.current
+    AppCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.accent.copy(0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Bolt, null, tint = vb.accent, modifier = Modifier.size(20.dp))
+                }
+                Column {
+                    Text("Modo Rápido de Macros", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Equivalencias de alimentos", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                }
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = vb.accent,
+                    checkedTrackColor = vb.accent.copy(0.3f)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun MacroQuickTable() {
+    val vb = LocalVoltBodyColors.current
+    AppCard {
+        SectionHeader(title = "⚡ Equivalencias Rápidas")
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        QuickMacroItem("Proteína (25g)", "🍗 120g Pollo/Pavo\n🐟 140g Atún/Pescado\n🍳 150g Claras\n🥤 1 scoop Proteína", ColorInfo)
+        Spacer(modifier = Modifier.height(12.dp))
+        QuickMacroItem("Hidratos (50g)", "🍚 200g Arroz cocido\n🍝 250g Pasta cocida\n🥔 300g Patata\n🥣 60g Avena", ColorWarning)
+        Spacer(modifier = Modifier.height(12.dp))
+        QuickMacroItem("Grasas (15g)", "🥜 30g Nueces\n🥑 1/2 Aguacate\n🫒 1.5 cdas Aceite Oliva", ColorError)
+    }
+}
+
+@Composable
+private fun QuickMacroItem(title: String, details: String, color: Color) {
+    val vb = LocalVoltBodyColors.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(color.copy(alpha = 0.05f))
+            .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        Text(title, style = UppercaseLabel, color = color)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(details, style = MaterialTheme.typography.bodySmall, color = ColorWhite, lineHeight = 20.sp)
     }
 }

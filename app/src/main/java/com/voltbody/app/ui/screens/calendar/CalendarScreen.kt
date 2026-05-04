@@ -85,9 +85,49 @@ fun CalendarScreen(
                         style = MaterialTheme.typography.titleSmall,
                         color = vb.textMuted
                     )
-                    Text(workout.focus, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(workout.focus, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = vb.accent, modifier = Modifier.weight(1f))
+                        TextButton(
+                            onClick = viewModel::toggleRescheduling,
+                            colors = ButtonDefaults.textButtonColors(contentColor = if (uiState.isRescheduling) ColorError else vb.accent)
+                        ) {
+                            Icon(if (uiState.isRescheduling) Icons.Default.Close else Icons.Default.EventRepeat, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (uiState.isRescheduling) "Cancelar" else "Reprogramar", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    
+                    if (uiState.isRescheduling) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Selecciona el nuevo día para este entrenamiento:", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            WEEKDAY_LABELS.forEach { (full, short, _) ->
+                                val targetDayIdx = getMondayFirstIndex(LocalDate.now().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.valueOf(full.uppercase())))) // This is a bit complex, let's simplify
+                                
+                                // Actually, let's just use the index 0-6 directly
+                                val dayOfWeek = java.time.DayOfWeek.of(if (WEEKDAY_LABELS.indexOfFirst { it.first == full } == 0) 1 else WEEKDAY_LABELS.indexOfFirst { it.first == full } + 1)
+                                
+                                OutlinedButton(
+                                    onClick = { 
+                                        val targetDate = uiState.selectedDay?.with(java.time.DayOfWeek.of(WEEKDAY_LABELS.indexOfFirst { it.first == full } + 1))
+                                        targetDate?.let { viewModel.moveWorkout(uiState.selectedDay!!, it) }
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, vb.accent.copy(0.3f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorWhite)
+                                ) {
+                                    Text(short)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        AccentDivider()
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
                     workout.exercises.forEach { ex ->
+
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(ex.name, style = MaterialTheme.typography.bodyMedium, color = ColorWhite, modifier = Modifier.weight(1f))
                             NeonBadge("${ex.sets}×${ex.reps}")

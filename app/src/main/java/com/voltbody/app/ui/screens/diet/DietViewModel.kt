@@ -28,8 +28,10 @@ data class DietUiState(
     val foodPreferences: FoodPreferences? = null,
     // --- date navigation ---
     val selectedDate: LocalDate = LocalDate.now(),
-    val isToday: Boolean = true
+    val isToday: Boolean = true,
+    val isMacroQuickMode: Boolean = false
 )
+
 
 @HiltViewModel
 class DietViewModel @Inject constructor(
@@ -132,7 +134,12 @@ class DietViewModel @Inject constructor(
     fun addWaterGlass() { if (_waterGlasses.value < 16) _waterGlasses.value++ }
     fun removeWaterGlass() { if (_waterGlasses.value > 0) _waterGlasses.value-- }
 
+    fun toggleMacroQuickMode() {
+        _uiState.update { it.copy(isMacroQuickMode = !it.isMacroQuickMode) }
+    }
+
     fun refresh() {
+
         viewModelScope.launch {
             _isRefreshing.value = true
             appViewModel.syncData()

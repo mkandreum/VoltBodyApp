@@ -26,8 +26,10 @@ data class CalendarUiState(
     val completedDaysInMonth: Set<LocalDate> = emptySet(),
     val weekWorkouts: Int = 0,
     val weekSets: Int = 0,
-    val weekStreak: Int = 0
+    val weekStreak: Int = 0,
+    val isRescheduling: Boolean = false
 )
+
 
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
@@ -98,4 +100,45 @@ class CalendarViewModel @Inject constructor(
     fun prevMonth() { _displayMonth.value = _displayMonth.value.minusMonths(1) }
     fun nextMonth() { _displayMonth.value = _displayMonth.value.plusMonths(1) }
     fun selectDay(day: LocalDate) { _selectedDay.value = day }
+
+    fun toggleRescheduling() {
+        _uiState.update { it.copy(isRescheduling = !it.isRescheduling) }
+    }
+
+    fun moveWorkout(fromDay: LocalDate, toDay: LocalDate) {
+        val routine = appViewModel.routine.value.toMutableList()
+        val fromIdx = getMondayFirstIndex(fromDay)
+        val toIdx = getMondayFirstIndex(toDay)
+        
+        if (fromIdx == toIdx) return
+        
+        val routineByDay = mapRoutineByWeekday(routine)
+        val workoutToMove = routineByDay[fromIdx] ?: return
+        
+        // Find the index in the original list for the 'from' day
+        val originalFromIdx = routine.indexOfFirst { getMondayFirstIndex(LocalDate.now().with(it.dayOfWeek())) == fromIdx }
+        
+        // Update the day of the workout
+        val targetDayOfWeek = toDay.dayOfWeek
+        val updatedWorkout = workoutToMove.copy(day = targetDayOfWeek.name.lowercase().capitalize())
+        
+        // If there's already a workout on the target day, we might want to swap or just move. 
+        // Web version seems to swap/reassign.
+        val newRoutine = routine.map { 
+            if (it.day.lowercase() == fromDay.dayOfWeek.name.lowercase()) {
+                // This is the day we are moving FROM. If we move it, what happens to this day? 
+                // In the app logic, we usually just change the day field.
+                updatedWorkout
+            } else if (it.day.lowercase() == toDay.dayOfWeek.name.lowercase()) {
+                // If there was a workout here, we swap it to the fromDay
+                it.copy(day = fromDay.dayOfWeek.name.lowercase().capitalize())
+            } else {
+                it
+            }
+        }
+        
+        appViewModel.setRoutine(newRoutine)
+        _uiState.update { it.copy(isRescheduling = false) }
+    }
 }
+
