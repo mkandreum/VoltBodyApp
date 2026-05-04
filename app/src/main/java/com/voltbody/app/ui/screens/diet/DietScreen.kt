@@ -1,6 +1,7 @@
 package com.voltbody.app.ui.screens.diet
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.domain.model.*
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+// Colour helpers for remaining calories
+private fun remainingColor(remaining: Int, target: Int): Color = when {
+    target <= 0 -> ColorInfo
+    remaining < 0 -> ColorError           // over target
+    remaining.toFloat() / target < 0.1f -> Color(0xFFFBBF24)  // amber — <10% left
+    else -> ColorSuccess                   // on track
+}
 
 @Composable
 fun DietScreen(
@@ -31,7 +43,6 @@ fun DietScreen(
 ) {
     val vb = LocalVoltBodyColors.current
     val uiState by viewModel.uiState.collectAsState()
-    val today = java.time.LocalDate.now().toString()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(vb.bg),
@@ -39,23 +50,47 @@ fun DietScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text("Plan Nutricional", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+            Text(
+                "Plan Nutricional",
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                color = ColorWhite
+            )
         }
 
-        // ── Macros summary ────────────────────────────────────────────────────
+        // ── Date navigation ───────────────────────────────────────────
+        item {
+            DateNavigationBar(
+                selectedDate = uiState.selectedDate,
+                isToday = uiState.isToday,
+                onPrevious = viewModel::goToPreviousDay,
+                onNext = viewModel::goToNextDay,
+                onToday = viewModel::goToToday
+            )
+        }
+
+        // ── Macros summary ────────────────────────────────────────────
         uiState.diet?.let { diet ->
             item {
-                MacrosSummaryCard(diet = diet, eatenCalories = uiState.eatenCalories, totalMeals = diet.meals.size, eatenMeals = uiState.eatenMealIds.size)
+                MacrosSummaryCard(
+                    diet = diet,
+                    eatenCalories = uiState.eatenCalories,
+                    remainingCalories = uiState.remainingCalories,
+                    totalMeals = diet.meals.size,
+                    eatenMeals = uiState.eatenMealIds.size,
+                    eatenProtein = uiState.eatenProtein,
+                    eatenCarbs = uiState.eatenCarbs,
+                    eatenFat = uiState.eatenFat
+                )
             }
 
-            // ── Meals ─────────────────────────────────────────────────────────
+            // ── Meals ────────────────────────────────────────────────
             items(diet.meals, key = { it.id }) { meal ->
                 val isEaten = uiState.eatenMealIds.contains(meal.id)
                 MealCard(
                     meal = meal,
                     isEaten = isEaten,
                     isSwapping = uiState.swappingMealId == meal.id,
-                    onToggleEaten = { viewModel.toggleMealEaten(meal.id, today) },
+                    onToggleEaten = { viewModel.toggleMealEaten(meal.id) },
                     onSwap = { viewModel.swapMeal(meal) }
                 )
             }
@@ -72,54 +107,225 @@ fun DietScreen(
             }
         }
 
-        // ── Hydration tracker ─────────────────────────────────────────────────
+        // ── Hydration tracker ──────────────────────────────────────────
         item {
-            HydrationCard(glassCount = uiState.waterGlasses, onAddGlass = viewModel::addWaterGlass, onRemoveGlass = viewModel::removeWaterGlass)
+            HydrationCard(
+                glassCount = uiState.waterGlasses,
+                onAddGlass = viewModel::addWaterGlass,
+                onRemoveGlass = viewModel::removeWaterGlass
+            )
         }
     }
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Components
+// ──────────────────────────────────────────────────────────────────────────
+
+/** Prev/Next date navigator, blocks future dates. */
 @Composable
-private fun MacrosSummaryCard(diet: DietPlan, eatenCalories: Int, totalMeals: Int, eatenMeals: Int) {
+private fun DateNavigationBar(
+    selectedDate: LocalDate,
+    isToday: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit
+) {
     val vb = LocalVoltBodyColors.current
+    val formatter = remember { DateTimeFormatter.ofPattern("EEE d MMM", Locale("es")) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(vb.surface)
+            .border(1.dp, vb.border, RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        IconButton(onClick = onPrevious, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.ChevronLeft, contentDescription = "Día anterior", tint = vb.textMuted)
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable(enabled = !isToday) { onToday() }
+        ) {
+            Text(
+                text = if (isToday) "Hoy" else selectedDate.format(formatter).replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = if (isToday) vb.accent else ColorWhite
+            )
+            if (!isToday) {
+                Text("Toca para volver a hoy", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+            }
+        }
+        IconButton(
+            onClick = onNext,
+            enabled = !isToday,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = "Día siguiente",
+                tint = if (isToday) vb.border else vb.textMuted
+            )
+        }
+    }
+}
+
+/**
+ * Macros summary card.
+ * Shows animated progress bars for each macro (eaten vs target).
+ * Shows calories eaten / target + remaining counter.
+ */
+@Composable
+private fun MacrosSummaryCard(
+    diet: DietPlan,
+    eatenCalories: Int,
+    remainingCalories: Int,
+    totalMeals: Int,
+    eatenMeals: Int,
+    eatenProtein: Int,
+    eatenCarbs: Int,
+    eatenFat: Int
+) {
+    val vb = LocalVoltBodyColors.current
+    val remainColor = remainingColor(remainingCalories, diet.dailyCalories)
+
     AppCard {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        // ── Calories row ───────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
-                Text("Calorías objetivo", style = UppercaseLabel, color = vb.textMuted)
+                Text("Calorías consumidas", style = UppercaseLabel, color = vb.textMuted)
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("$eatenCalories", style = MonoMetric, color = vb.accent)
                     Text("/ ${diet.dailyCalories} kcal", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
                 }
             }
-            CircularProgressRing(
-                value = if (diet.dailyCalories > 0) eatenCalories.toFloat() / diet.dailyCalories else 0f,
-                modifier = Modifier.size(52.dp),
-                label = "$eatenMeals/$totalMeals"
+            // Remaining badge
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    if (remainingCalories >= 0) "Quedan" else "Exceso",
+                    style = UppercaseLabel,
+                    color = vb.textMuted
+                )
+                Text(
+                    "${if (remainingCalories < 0) "+" else ""}${kotlin.math.abs(remainingCalories)} kcal",
+                    style = MonoMetric.copy(fontSize = 18.sp),
+                    color = remainColor
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Calories global bar
+        val calProgress by animateFloatAsState(
+            targetValue = if (diet.dailyCalories > 0)
+                (eatenCalories.toFloat() / diet.dailyCalories).coerceIn(0f, 1f)
+            else 0f,
+            animationSpec = tween(600, easing = FastOutSlowInEasing),
+            label = "cal_progress"
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(CircleShape)
+                .background(vb.border)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(calProgress)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(vb.accent, remainColor)
+                        )
+                    )
             )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        AccentDivider()
         Spacer(modifier = Modifier.height(12.dp))
-        // Macro bars
-        val macros = listOf(
-            Triple("Prot", diet.macros.protein, ColorInfo),
-            Triple("HC", diet.macros.carbs, ColorWarning),
-            Triple("Grasa", diet.macros.fat, ColorError)
-        )
-        macros.forEach { (label, grams, color) ->
-            MacroBar(label = label, grams = grams, color = color)
-            Spacer(modifier = Modifier.height(4.dp))
+
+        // ── Macro progress bars ───────────────────────────────────────
+        Text("Macronutrientes", style = UppercaseLabel, color = vb.textMuted)
+        Spacer(modifier = Modifier.height(8.dp))
+        listOf(
+            MacroRowData("Prot", eatenProtein, diet.macros.protein, ColorInfo),
+            MacroRowData("HC", eatenCarbs, diet.macros.carbs, ColorWarning),
+            MacroRowData("Grasa", eatenFat, diet.macros.fat, ColorError)
+        ).forEach { macro ->
+            MacroProgressBar(macro)
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+        // Meals summary chips
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NeonBadge("$eatenMeals / $totalMeals comidas")
         }
     }
 }
 
+private data class MacroRowData(val label: String, val eaten: Int, val target: Int, val color: Color)
+
 @Composable
-private fun MacroBar(label: String, grams: Int, color: Color) {
+private fun MacroProgressBar(data: MacroRowData) {
     val vb = LocalVoltBodyColors.current
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = UppercaseLabel, color = vb.textMuted, modifier = Modifier.width(36.dp))
-        Box(modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape).background(vb.border)) {
-            Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(minOf(1f, grams / 200f)).clip(CircleShape).background(color))
+    val fraction = if (data.target > 0)
+        (data.eaten.toFloat() / data.target).coerceIn(0f, 1f)
+    else 0f
+    val animFraction by animateFloatAsState(
+        targetValue = fraction,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "macro_${data.label}"
+    )
+    val isOver = data.eaten > data.target
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // label
+        Text(
+            data.label,
+            style = UppercaseLabel,
+            color = vb.textMuted,
+            modifier = Modifier.width(40.dp)
+        )
+        // progress track
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(8.dp)
+                .clip(CircleShape)
+                .background(vb.border)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animFraction)
+                    .clip(CircleShape)
+                    .background(if (isOver) ColorError else data.color)
+            )
         }
-        Text("${grams}g", style = UppercaseLabel, color = color, modifier = Modifier.width(36.dp))
+        // eaten / target
+        Text(
+            "${data.eaten}/${data.target}g",
+            style = UppercaseLabel,
+            color = if (isOver) ColorError else data.color,
+            modifier = Modifier.width(72.dp),
+            textAlign = TextAlign.End
+        )
     }
 }
 
@@ -155,14 +361,26 @@ private fun MealCard(
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(meal.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = if (isEaten) vb.textMuted else ColorWhite)
+                        Text(
+                            meal.name,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = if (isEaten) vb.textMuted else ColorWhite
+                        )
                         Text(meal.time, style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("${meal.calories} kcal", style = MaterialTheme.typography.labelLarge, color = vb.accent)
-                        Text("P:${meal.protein}g · HC:${meal.carbs}g · G:${meal.fat}g", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        Text(
+                            "P:${meal.protein}g · HC:${meal.carbs}g · G:${meal.fat}g",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = vb.textMuted
+                        )
                     }
                 }
 
@@ -203,24 +421,60 @@ private fun HydrationCard(glassCount: Int, onAddGlass: () -> Unit, onRemoveGlass
     AppCard {
         SectionHeader(title = "💧 Hidratación")
         Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Column {
                 Text("$glassCount / $targetGlasses vasos", style = MaterialTheme.typography.titleSmall, color = ColorWhite)
-                Text("${(glassCount * 250)} ml de 2000 ml", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
+                Text("${glassCount * 250} ml de 2000 ml", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onRemoveGlass, enabled = glassCount > 0, modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.surface)) {
-                    Text("−", color = vb.textMuted)
-                }
-                IconButton(onClick = onAddGlass, enabled = glassCount < 16, modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.accent.copy(0.15f)).border(1.dp, vb.accent.copy(0.4f), CircleShape)) {
-                    Text("+", color = vb.accent, fontWeight = FontWeight.Black)
-                }
+                IconButton(
+                    onClick = onRemoveGlass,
+                    enabled = glassCount > 0,
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.surface)
+                ) { Text("−", color = vb.textMuted) }
+                IconButton(
+                    onClick = onAddGlass,
+                    enabled = glassCount < 16,
+                    modifier = Modifier.size(36.dp).clip(CircleShape)
+                        .background(vb.accent.copy(0.15f))
+                        .border(1.dp, vb.accent.copy(0.4f), CircleShape)
+                ) { Text("+", color = vb.accent, fontWeight = FontWeight.Black) }
             }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        // Hydration progress bar
+        val hydrationProgress by animateFloatAsState(
+            targetValue = (glassCount.toFloat() / targetGlasses).coerceIn(0f, 1f),
+            animationSpec = tween(400),
+            label = "hydration"
+        )
+        Box(
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(vb.border)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxHeight().fillMaxWidth(hydrationProgress).clip(CircleShape).background(ColorInfo)
+            )
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             repeat(targetGlasses) { i ->
-                Box(modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(if (i < glassCount) ColorInfo else vb.border))
+                val filled = i < glassCount
+                val scale by animateFloatAsState(
+                    targetValue = if (filled) 1f else 0.85f,
+                    animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
+                    label = "glass_$i"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (filled) ColorInfo else vb.border)
+                )
             }
         }
     }
