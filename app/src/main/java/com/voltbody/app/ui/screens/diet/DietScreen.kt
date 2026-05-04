@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.domain.model.*
 import com.voltbody.app.ui.components.*
+import com.voltbody.app.ui.screens.diet.components.FoodPreferencesCard
+import com.voltbody.app.ui.screens.diet.components.MacroTipsCard
+import com.voltbody.app.ui.screens.diet.components.SpecialDishCalculator
 import com.voltbody.app.ui.theme.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -83,6 +86,10 @@ fun DietScreen(
                 )
             }
 
+            item {
+                MacroTipsCard()
+            }
+
             // ── Meals ────────────────────────────────────────────────
             items(diet.meals, key = { it.id }) { meal ->
                 val isEaten = uiState.eatenMealIds.contains(meal.id)
@@ -93,6 +100,16 @@ fun DietScreen(
                     onToggleEaten = { viewModel.toggleMealEaten(meal.id) },
                     onSwap = { viewModel.swapMeal(meal) }
                 )
+            }
+
+            item {
+                SpecialDishCalculator()
+            }
+            
+            uiState.foodPreferences?.let { prefs ->
+                item {
+                    FoodPreferencesCard(preferences = prefs)
+                }
             }
         } ?: item {
             Box(

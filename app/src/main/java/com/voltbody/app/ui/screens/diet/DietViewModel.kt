@@ -25,6 +25,7 @@ data class DietUiState(
     // --- other ---
     val swappingMealId: String? = null,
     val waterGlasses: Int = 0,
+    val foodPreferences: FoodPreferences? = null,
     // --- date navigation ---
     val selectedDate: LocalDate = LocalDate.now(),
     val isToday: Boolean = true
@@ -46,9 +47,10 @@ class DietViewModel @Inject constructor(
             combine(
                 appViewModel.diet,
                 appViewModel.mealEatenRecord,
+                appViewModel.profile,
                 _waterGlasses,
                 _selectedDate
-            ) { diet, mealEatenRecord, water, date ->
+            ) { diet, mealEatenRecord, profile, water, date ->
                 val dateStr = date.toString()
                 val eatenIds = mealEatenRecord[dateStr]?.toSet() ?: emptySet()
                 val eatenMeals = diet?.meals?.filter { eatenIds.contains(it.id) } ?: emptyList()
@@ -70,6 +72,7 @@ class DietViewModel @Inject constructor(
                     eatenFat = eatenFat,
                     swappingMealId = _uiState.value.swappingMealId,
                     waterGlasses = water,
+                    foodPreferences = profile?.foodPreferences,
                     selectedDate = date,
                     isToday = date == LocalDate.now()
                 )
