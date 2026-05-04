@@ -15,6 +15,8 @@ data class SetLog(
     val setNumber: Int,
     val reps: Int,
     val weightKg: Float,
+    val rpe: Int? = null,
+    val note: String? = null,
     val completedAt: Long = System.currentTimeMillis()
 )
 
@@ -32,9 +34,10 @@ data class WorkoutSessionState(
     val isFinished: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
-    // sets/reps picker
     val selectedReps: Int = 10,
     val selectedWeight: Float = 0f,
+    val selectedRpe: Int? = null,
+    val currentNote: String = "",
     val availableReps: List<Int> = (1..20).toList(),
 )
 
@@ -59,15 +62,19 @@ class WorkoutSessionViewModel @Inject constructor(
     private var restJob: Job? = null
 
     fun startSession(workoutId: String, workoutName: String, exercises: List<WorkoutExercise>) {
-        _state.update { it.copy(
-            workoutId = workoutId,
-            workoutName = workoutName,
-            exercises = exercises,
-            currentExerciseIndex = 0,
-            currentSetIndex = 0,
-            elapsedSeconds = 0,
-            selectedReps = exercises.firstOrNull()?.targetReps ?: 10
-        ) }
+        _state.update {
+            it.copy(
+                workoutId = workoutId,
+                workoutName = workoutName,
+                exercises = exercises,
+                currentExerciseIndex = 0,
+                currentSetIndex = 0,
+                elapsedSeconds = 0,
+                selectedReps = exercises.firstOrNull()?.targetReps ?: 10,
+                selectedRpe = null,
+                currentNote = ""
+            )
+        }
         startElapsedTimer()
     }
 
@@ -91,30 +98,39 @@ class WorkoutSessionViewModel @Inject constructor(
             exerciseName = exercise.name,
             setNumber = s.currentSetIndex + 1,
             reps = reps,
-            weightKg = weightKg
+            weightKg = weightKg,
+            rpe = s.selectedRpe,
+            note = s.currentNote.trim().takeIf { it.isNotEmpty() }
         )
         val newLogs = s.setLogs + log
         val nextSet = s.currentSetIndex + 1
         if (nextSet >= exercise.sets) {
-            // advance to next exercise
             val nextExercise = s.currentExerciseIndex + 1
             if (nextExercise >= s.exercises.size) {
                 _state.update { it.copy(setLogs = newLogs, isFinished = true) }
                 finishSession(newLogs)
             } else {
-                _state.update { it.copy(
-                    setLogs = newLogs,
-                    currentExerciseIndex = nextExercise,
-                    currentSetIndex = 0,
-                    selectedReps = s.exercises[nextExercise].targetReps
-                ) }
+                _state.update {
+                    it.copy(
+                        setLogs = newLogs,
+                        currentExerciseIndex = nextExercise,
+                        currentSetIndex = 0,
+                        selectedReps = s.exercises[nextExercise].targetReps,
+                        selectedRpe = null,
+                        currentNote = ""
+                    )
+                }
                 startRest(exercise.restSeconds)
             }
         } else {
-            _state.update { it.copy(
-                setLogs = newLogs,
-                currentSetIndex = nextSet
-            ) }
+            _state.update {
+                it.copy(
+                    setLogs = newLogs,
+                    currentSetIndex = nextSet,
+                    selectedRpe = null,
+                    currentNote = ""
+                )
+            }
             startRest(exercise.restSeconds)
         }
     }
@@ -148,12 +164,13 @@ class WorkoutSessionViewModel @Inject constructor(
 
     fun setReps(reps: Int) = _state.update { it.copy(selectedReps = reps) }
     fun setWeight(weight: Float) = _state.update { it.copy(selectedWeight = weight) }
+    fun setRpe(rpe: Int?) = _state.update { it.copy(selectedRpe = rpe) }
+    fun setNote(note: String) = _state.update { it.copy(currentNote = note) }
 
     private fun finishSession(logs: List<SetLog>) {
         viewModelScope.launch {
             elapsedJob?.cancel()
             restJob?.cancel()
-            // POST session summary to backend
             try {
                 api.logWorkoutSession(
                     workoutId = _state.value.workoutId,
