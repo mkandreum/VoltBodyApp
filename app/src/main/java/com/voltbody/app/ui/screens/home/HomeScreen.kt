@@ -1,485 +1,282 @@
 package com.voltbody.app.ui.screens.home
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.voltbody.app.domain.model.*
-import com.voltbody.app.domain.usecase.*
-import com.voltbody.app.ui.components.*
-import com.voltbody.app.ui.theme.*
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import com.voltbody.app.ui.components.VoltBodyLoadingIndicator
 
-// ── Bottom nav pill height + extra breathing room ─────────────────────────────
-// The floating pill nav is ~72 dp tall; we add 16 dp extra so the last card
-// never hides behind it. This constant is intentionally defined here rather
-// than shared globally so each screen can tune its own clearance.
-private val BOTTOM_NAV_CLEARANCE = 88.dp
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onStartWorkout: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val vb = LocalVoltBodyColors.current
-    val uiState by viewModel.uiState.collectAsState()
+    val state by viewModel.state.collectAsState()
 
-    if (!uiState.hasHydrated) {
-        HomeShimmerSkeleton()
-        return
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            // Draw content behind the status bar; statusBarsPadding() adds
-            // the exact inset so text is never hidden under the clock/icons.
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp)
-            // Top padding: a bit of breathing room below the status bar.
-            .padding(top = 16.dp)
-            // Bottom padding: clear the floating bottom nav + nav bar inset.
-            // navigationBarsPadding() handles gesture nav / 3-button nav bar;
-            // BOTTOM_NAV_CLEARANCE adds space above that for the pill itself.
-            .navigationBarsPadding()
-            .padding(bottom = BOTTOM_NAV_CLEARANCE),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ── Header greeting ───────────────────────────────────────────────────
-        HomeHeader(profile = uiState.profile, motivationPhrase = uiState.motivationPhrase)
-
-        // ── Avatar + XP card ──────────────────────────────────────────────────
-        AvatarXpCard(uiState = uiState)
-
-        // ── Stats row ─────────────────────────────────────────────────────────
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            StatPill(
-                value = "${uiState.streak}",
-                label = "Racha",
-                modifier = Modifier.weight(1f),
-                accentColor = if (uiState.streak > 0) vb.accent else vb.textMuted
-            )
-            StatPill(value = "${uiState.workoutsThisWeek}", label = "Esta semana", modifier = Modifier.weight(1f))
-            StatPill(value = "${uiState.totalSeries}", label = "Series totales", modifier = Modifier.weight(1f))
-        }
-
-        // ── Recovery score banner ─────────────────────────────────────────────
-        uiState.recoveryAdvice?.let { advice ->
-            RecoveryBannerCard(advice = advice, score = uiState.recoveryScore)
-        } ?: RecoveryCheckInCard(onCheckIn = viewModel::addRecoveryLog)
-
-        // ── Fatigue radar ─────────────────────────────────────────────────────
-        if (uiState.fatigueEntries.isNotEmpty()) {
-            FatigueCard(entries = uiState.fatigueEntries)
-        }
-
-        // ── Today's workout ───────────────────────────────────────────────────
-        uiState.todayWorkout?.let { workout ->
-            TodayWorkoutCard(workout = workout, progress = uiState.todayProgress)
-        }
-
-        // ── BLE Heart rate ────────────────────────────────────────────────────
-        BleHeartRateCard(
-            bleState = uiState.bleState,
-            heartRate = uiState.heartRate,
-            deviceName = uiState.bleDeviceName,
-            onConnect = viewModel::connectBle,
-            onDisconnect = viewModel::disconnectBle
-        )
-
-        // ── Weight chart ──────────────────────────────────────────────────────
-        if (uiState.weightChartData.any { it != null }) {
-            WeightChartCard(data = uiState.weightChartData, labels = uiState.weightChartLabels)
-        }
-
-        // ── AI Progress report button ─────────────────────────────────────────
-        AiProgressReportCard(
-            report = uiState.progressReport,
-            isLoading = uiState.reportLoading,
-            onGenerate = viewModel::generateProgressReport
-        )
-    }
-}
-
-// ── Sub-composables ───────────────────────────────────────────────────────────
-
-@Composable
-private fun HomeHeader(profile: UserProfile?, motivationPhrase: String) {
-    val vb = LocalVoltBodyColors.current
-    val hour = java.time.LocalTime.now().hour
-    val greeting = when {
-        hour < 12 -> "Buenos días"
-        hour < 20 -> "Buenas tardes"
-        else -> "Buenas noches"
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "$greeting, ${profile?.name ?: "Atleta"} 👋",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                color = ColorWhite
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = motivationPhrase,
-                style = MaterialTheme.typography.bodySmall,
-                color = vb.textMuted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Icon(Icons.Filled.Bolt, contentDescription = null, tint = vb.accent, modifier = Modifier.size(28.dp))
-    }
-}
-
-@Composable
-private fun AvatarXpCard(uiState: HomeUiState) {
-    val vb = LocalVoltBodyColors.current
-    AppCard {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(modifier = Modifier.weight(0.9f)) {
-                uiState.profile?.let { p ->
-                    Avatar3D(config = p.avatarConfig, gender = p.gender, modifier = Modifier.height(200.dp))
-                }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+        // ── Greeting ─────────────────────────────────────────────────────────
+        item {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                NeonBadge(text = "NIVEL ${uiState.level}", color = vb.accent)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("XP", style = UppercaseLabel, color = vb.textMuted)
-                        Text("${uiState.xp} / ${uiState.xpForNext}", style = UppercaseLabel, color = vb.accent)
-                    }
-                    val xpProgress by animateFloatAsState(
-                        targetValue = if (uiState.xpForNext > 0) uiState.xp.toFloat() / uiState.xpForNext else 0f,
-                        animationSpec = tween(1000, easing = FastOutSlowInEasing),
-                        label = "xp"
+                Column {
+                    Text(
+                        "Hola, ${state.userName} ⚡",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(CircleShape)
-                            .background(vb.border)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(xpProgress)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.horizontalGradient(listOf(vb.accent.copy(alpha = 0.7f), vb.accent))
-                                )
-                        )
-                    }
+                    Text(
+                        state.greeting,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                if (uiState.profile != null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MiniStat("${uiState.profile.weight.toInt()}kg", "Peso", modifier = Modifier.weight(1f))
-                        MiniStat("${uiState.profile.height.toInt()}cm", "Altura", modifier = Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        uiState.bmi?.let { MiniStat(it, "IMC", modifier = Modifier.weight(1f)) }
-                        uiState.tdee?.let { MiniStat("${it}kcal", "TDEE", modifier = Modifier.weight(1f)) }
-                    }
-                }
+                // Streak badge
+                StreakBadge(days = state.streakDays)
+            }
+        }
+
+        // ── Weekly progress widget ────────────────────────────────────────────
+        item {
+            WeeklyProgressCard(
+                workoutsThisWeek = state.weeklyWorkouts,
+                targetWorkouts = state.weeklyTarget,
+                totalVolumeKg = state.weeklyVolumeKg,
+                dailyVolume = state.dailyVolumeKg
+            )
+        }
+
+        // ── Today's workout card ──────────────────────────────────────────────
+        state.todayWorkout?.let { workout ->
+            item {
+                TodayWorkoutCard(
+                    workoutName = workout.name,
+                    exerciseCount = workout.exerciseCount,
+                    estimatedMinutes = workout.estimatedMinutes,
+                    onStart = { onStartWorkout(workout.id) }
+                )
+            }
+        } ?: item {
+            if (state.isLoading) VoltBodyLoadingIndicator()
+        }
+
+        // ── Volume chart ──────────────────────────────────────────────────────
+        if (state.dailyVolumeKg.isNotEmpty()) {
+            item {
+                VolumeChartCard(dailyVolume = state.dailyVolumeKg)
             }
         }
     }
 }
 
+// ── Streak badge ─────────────────────────────────────────────────────────────
+
 @Composable
-private fun MiniStat(value: String, label: String, modifier: Modifier = Modifier) {
-    val vb = LocalVoltBodyColors.current
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(vb.surface)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+fun StreakBadge(days: Int) {
+    val scale by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f),
+        label = "streak_scale"
+    )
+    Box(
+        modifier = Modifier
+            .size(64.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(CircleShape)
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Text(value, style = MonoMetric.copy(fontSize = 14.sp), color = ColorWhite, fontWeight = FontWeight.Bold)
-        Text(label, style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "$days",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Text(
+                "días",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+            )
+        }
     }
 }
 
+// ── Weekly progress card ──────────────────────────────────────────────────────
+
 @Composable
-private fun RecoveryBannerCard(advice: RecoveryAdvice, score: Int) {
-    val vb = LocalVoltBodyColors.current
-    val bgColor = when (getRecoveryTier(score)) {
-        RecoveryTier.LOW -> ColorInfo.copy(alpha = 0.12f)
-        RecoveryTier.MODERATE -> ColorWarning.copy(alpha = 0.12f)
-        RecoveryTier.GOOD -> ColorSuccess.copy(alpha = 0.12f)
-        RecoveryTier.OPTIMAL -> vb.accent.copy(alpha = 0.12f)
-    }
-    val borderColor = when (getRecoveryTier(score)) {
-        RecoveryTier.LOW -> ColorInfo.copy(alpha = 0.4f)
-        RecoveryTier.MODERATE -> ColorWarning.copy(alpha = 0.4f)
-        RecoveryTier.GOOD -> ColorSuccess.copy(alpha = 0.4f)
-        RecoveryTier.OPTIMAL -> vb.accent.copy(alpha = 0.4f)
-    }
-    Row(
+fun WeeklyProgressCard(
+    workoutsThisWeek: Int,
+    targetWorkouts: Int,
+    totalVolumeKg: Float,
+    dailyVolume: List<Float>
+) {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
+    val scale by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0.9f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
+        label = "week_card_scale"
+    )
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale },
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Box(
-            modifier = Modifier.size(48.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressRing(value = score / 100f, modifier = Modifier.size(48.dp), strokeWidth = 3.dp, fillColor = borderColor)
-            Text("$score", style = UppercaseLabel.copy(fontSize = 10.sp), color = ColorWhite)
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(advice.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
-            Text(advice.intensityLabel, style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
-        }
-    }
-}
-
-@Composable
-private fun RecoveryCheckInCard(onCheckIn: (Float, Float?) -> Unit) {
-    val vb = LocalVoltBodyColors.current
-    var sleep by remember { mutableStateOf(7.5f) }
-    var hrv by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-
-    AppCard(onClick = { expanded = !expanded }) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.BedtimeOff, contentDescription = null, tint = vb.accent, modifier = Modifier.size(20.dp))
-                Text("Check-in de recuperación", style = MaterialTheme.typography.titleSmall, color = ColorWhite)
+        Column(Modifier.padding(20.dp)) {
+            Text("Esta semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                StatChip(label = "Entrenos", value = "$workoutsThisWeek/$targetWorkouts")
+                StatChip(label = "Volumen", value = "${"%.0f".format(totalVolumeKg)} kg")
+                StatChip(label = "Progreso", value = "${((workoutsThisWeek.toFloat() / targetWorkouts.coerceAtLeast(1)) * 100).toInt()}%")
             }
-            Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = vb.textMuted, modifier = Modifier.size(18.dp))
-        }
-        AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Horas de sueño: ${sleep}h", style = MaterialTheme.typography.labelMedium, color = vb.textMuted)
-                Slider(
-                    value = sleep,
-                    onValueChange = { sleep = (it * 2).toInt() / 2f },
-                    valueRange = 3f..12f,
-                    steps = 17,
-                    colors = SliderDefaults.colors(thumbColor = vb.accent, activeTrackColor = vb.accent)
-                )
-                Button(
-                    onClick = { onCheckIn(sleep, hrv.toFloatOrNull()); expanded = false },
+            if (dailyVolume.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { (workoutsThisWeek.toFloat() / targetWorkouts.coerceAtLeast(1)).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = vb.accent, contentColor = ColorBlack)
-                ) { Text("Registrar recovery", fontWeight = FontWeight.Bold) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FatigueCard(entries: List<FatigueEntry>) {
-    val vb = LocalVoltBodyColors.current
-    AppCard {
-        SectionHeader(title = "🔋 Fatiga muscular")
-        Spacer(modifier = Modifier.height(12.dp))
-        entries.take(4).forEach { entry ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(entry.muscleGroup, style = MaterialTheme.typography.bodySmall, color = vb.textMuted, modifier = Modifier.width(80.dp))
-                val barColor = when (entry.status) {
-                    FatigueStatus.FRESH -> ColorSuccess
-                    FatigueStatus.MODERATE -> ColorWarning
-                    FatigueStatus.HIGH -> ColorOrange
-                    FatigueStatus.OVERREACHED -> ColorError
-                }
-                val animPct by animateFloatAsState(
-                    targetValue = (entry.percent / 100f).coerceIn(0f, 1f),
-                    animationSpec = tween(800),
-                    label = "fatigue_${entry.muscleGroup}"
+                    color = MaterialTheme.colorScheme.primary
                 )
-                Box(modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape).background(vb.border)) {
-                    Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(animPct).clip(CircleShape).background(barColor))
-                }
-                Text("${entry.percent}%", style = UppercaseLabel.copy(fontSize = 9.sp), color = barColor, modifier = Modifier.width(32.dp))
             }
         }
     }
 }
 
 @Composable
-private fun TodayWorkoutCard(workout: com.voltbody.app.domain.model.WorkoutDay, progress: Int) {
-    val vb = LocalVoltBodyColors.current
-    AppCard {
-        SectionHeader(title = "🏋️ Entreno de hoy")
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(workout.focus, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = vb.accent)
-        Spacer(modifier = Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { progress / 100f },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-            color = vb.accent,
-            trackColor = vb.border
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text("$progress% completado", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
-        Spacer(modifier = Modifier.height(8.dp))
-        workout.exercises.take(3).forEach { ex ->
-            Text("• ${ex.name} — ${ex.sets}×${ex.reps}", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
-        }
+fun StatChip(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
+// ── Today workout card ────────────────────────────────────────────────────────
+
 @Composable
-private fun BleHeartRateCard(
-    bleState: String,
-    heartRate: Int?,
-    deviceName: String?,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+fun TodayWorkoutCard(
+    workoutName: String,
+    exerciseCount: Int,
+    estimatedMinutes: Int,
+    onStart: () -> Unit
 ) {
-    val vb = LocalVoltBodyColors.current
-    val pulse by rememberInfiniteTransition(label = "hr_pulse").animateFloat(
-        initialValue = 1f,
-        targetValue = if (heartRate != null) 1.15f else 1f,
-        animationSpec = infiniteRepeatable(
-            tween(600, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-    AppCard {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(
-                    Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = if (heartRate != null) ColorError else vb.textMuted,
-                    modifier = Modifier.size(22.dp).graphicsLayer { scaleX = pulse; scaleY = pulse }
-                )
-                Column {
-                    Text("Monitor cardíaco", style = MaterialTheme.typography.titleSmall, color = ColorWhite)
-                    Text(
-                        text = when (bleState) {
-                            "connecting" -> "Buscando dispositivo..."
-                            "connected" -> deviceName ?: "Conectado"
-                            "error" -> "Error de conexión"
-                            else -> "No conectado"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = vb.textMuted
-                    )
-                }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Entreno de hoy", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                Text(workoutName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(Modifier.height(4.dp))
+                Text("$exerciseCount ejercicios · ~$estimatedMinutes min",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
             }
-            if (heartRate != null) {
-                Text("$heartRate bpm", style = MonoMetric, color = ColorError, fontWeight = FontWeight.Black)
-            } else {
-                OutlinedButton(
-                    onClick = if (bleState == "connected") onDisconnect else onConnect,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, vb.accent.copy(alpha = 0.5f)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        if (bleState == "connecting") "Buscando..." else "Conectar",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = vb.accent
-                    )
-                }
+            FilledIconButton(onClick = onStart, modifier = Modifier.size(52.dp)) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Empezar")
             }
         }
     }
 }
 
-@Composable
-private fun WeightChartCard(data: List<Float?>, labels: List<String>) {
-    val vb = LocalVoltBodyColors.current
-    AppCard {
-        SectionHeader(title = "⚖️ Evolución de peso")
-        Spacer(modifier = Modifier.height(12.dp))
-        SimpleLineChart(
-            data = data,
-            labels = labels,
-            modifier = Modifier.fillMaxWidth().height(100.dp),
-            lineColor = vb.chartLine,
-            fillColor = vb.chartFill
-        )
-    }
-}
+// ── Volume chart (Canvas) ─────────────────────────────────────────────────────
 
 @Composable
-private fun AiProgressReportCard(
-    report: HomeUiState.ProgressReport?,
-    isLoading: Boolean,
-    onGenerate: () -> Unit
-) {
-    val vb = LocalVoltBodyColors.current
-    AppCard {
-        SectionHeader(title = "✨ Informe IA de progreso")
-        Spacer(modifier = Modifier.height(8.dp))
-        if (isLoading) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ShimmerBox(modifier = Modifier.fillMaxWidth().height(20.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.8f).height(14.dp))
-            }
-        } else if (report != null) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                CircularProgressRing(value = report.overallScore / 100f, modifier = Modifier.size(64.dp))
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${report.progressPercent}%", style = MonoMetric, color = vb.accent)
-                    Text("Progreso", style = UppercaseLabel, color = vb.textMuted)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${report.consistencyPercent}%", style = MonoMetric, color = ColorSuccess)
-                    Text("Consistencia", style = UppercaseLabel, color = vb.textMuted)
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(report.summary, style = MaterialTheme.typography.bodySmall, color = vb.textMuted, maxLines = 4, overflow = TextOverflow.Ellipsis)
-        } else {
-            Text("Genera un análisis personalizado de tu progreso con IA", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = onGenerate,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = vb.accent.copy(alpha = 0.15f), contentColor = vb.accent),
-                border = BorderStroke(1.dp, vb.accent.copy(alpha = 0.3f))
+fun VolumeChartCard(dailyVolume: List<Float>) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Text("Volumen diario (kg)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(12.dp))
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
             ) {
-                Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Analizar con IA", fontWeight = FontWeight.Bold)
+                drawVolumeChart(dailyVolume, primaryColor, surfaceColor)
+            }
+            Spacer(Modifier.height(8.dp))
+            // Day labels
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf("L", "M", "X", "J", "V", "S", "D").take(dailyVolume.size).forEach { day ->
+                    Text(day, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
+    }
+}
+
+fun DrawScope.drawVolumeChart(volumes: List<Float>, lineColor: Color, fillColor: Color) {
+    if (volumes.isEmpty()) return
+    val maxVol = volumes.max().coerceAtLeast(1f)
+    val w = size.width
+    val h = size.height
+    val step = w / (volumes.size - 1).coerceAtLeast(1)
+
+    val path = Path().apply {
+        volumes.forEachIndexed { i, v ->
+            val x = i * step
+            val y = h - (v / maxVol) * h * 0.9f
+            if (i == 0) moveTo(x, y) else lineTo(x, y)
+        }
+    }
+    // Fill area
+    val fillPath = Path().apply {
+        addPath(path)
+        lineTo(w, h)
+        lineTo(0f, h)
+        close()
+    }
+    drawPath(fillPath, color = lineColor.copy(alpha = 0.15f))
+    drawPath(path, color = lineColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    // Dots
+    volumes.forEachIndexed { i, v ->
+        val x = i * step
+        val y = h - (v / maxVol) * h * 0.9f
+        drawCircle(color = lineColor, radius = 4.dp.toPx(), center = Offset(x, y))
+        drawCircle(color = fillColor, radius = 2.dp.toPx(), center = Offset(x, y))
     }
 }
