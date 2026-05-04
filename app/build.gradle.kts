@@ -114,6 +114,7 @@ dependencies {
 
     // Image
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
 
     // Permissions
     implementation(libs.accompanist.permissions)

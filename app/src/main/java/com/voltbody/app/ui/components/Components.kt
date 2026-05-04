@@ -25,10 +25,108 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.Dumbbell
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
 import com.voltbody.app.ui.theme.*
 import com.voltbody.app.util.HapticType
 import com.voltbody.app.util.perform
 import com.voltbody.app.util.rememberHaptic
+
+
+
+// ── LevelUpDialog — premium achievement popup ────────────────────────────────
+
+@Composable
+fun LevelUpDialog(
+    level: Int,
+    onDismiss: () -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    Dialog(onDismissRequest = onDismiss) {
+        AppCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                    ConfettiOverlay(Modifier.fillMaxSize())
+                    Text("🆙", fontSize = 64.sp)
+                }
+                Text(
+                    "¡NUEVO NIVEL!",
+                    style = UppercaseLabel.copy(fontSize = 14.sp, letterSpacing = 2.sp),
+                    color = vb.accent
+                )
+                Text(
+                    "Has alcanzado el Nivel $level",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "Sigue entrenando duro para desbloquear más recompensas y funciones IA.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = vb.textMuted,
+                    textAlign = TextAlign.Center
+                )
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = vb.accent, contentColor = ColorBlack)
+                ) {
+                    Text("¡VAMOS!", fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+
+
+// ── ExerciseGifPlayer — plays technique GIFs ─────────────────────────────────
+
+@Composable
+fun ExerciseGifPlayer(
+    gifUrl: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    val vb = LocalVoltBodyColors.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(vb.surfaceElevated)
+            .border(1.dp, vb.border.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (gifUrl.isNotBlank()) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(gifUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Técnica del ejercicio",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = contentScale
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Dumbbell,
+                contentDescription = null,
+                tint = vb.accent.copy(alpha = 0.2f),
+                modifier = Modifier.size(48.dp)
+            )
+        }
+    }
+}
 
 // ── AppCard — glass morphism card ─────────────────────────────────────────────
 

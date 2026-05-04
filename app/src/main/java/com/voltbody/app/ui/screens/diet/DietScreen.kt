@@ -177,14 +177,6 @@ fun DietScreen(
                 }
             }
         }
-    }er ──────────────────────────────────────────
-        item {
-            HydrationCard(
-                glassCount = uiState.waterGlasses,
-                onAddGlass = viewModel::addWaterGlass,
-                onRemoveGlass = viewModel::removeWaterGlass
-            )
-        }
     }
 }
 

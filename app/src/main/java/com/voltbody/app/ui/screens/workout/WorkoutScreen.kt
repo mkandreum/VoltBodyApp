@@ -19,6 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +36,7 @@ import com.voltbody.app.domain.model.*
 import com.voltbody.app.domain.usecase.WEEKDAY_LABELS
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun WorkoutScreen(
@@ -40,6 +45,7 @@ fun WorkoutScreen(
     val vb = LocalVoltBodyColors.current
     val uiState by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    var showLibraryDialog by remember { mutableStateOf(false) }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -161,8 +167,24 @@ fun WorkoutScreen(
                             exercise = exercise,
                             completedSets = uiState.completedSets[exercise.id] ?: 0,
                             progressiveSuggestion = uiState.progressiveSuggestions[exercise.id],
-                            onLogSet = { viewModel.openLogSheet(exercise) }
+                            onLogSet = { viewModel.openLogSheet(exercise) },
+                            onDelete = { viewModel.removeExerciseFromDay(uiState.selectedDayIndex, exercise.id) }
                         )
+                    }
+                }
+
+                item {
+                    StaggeredEntrance(day.exercises.size + 3) {
+                        OutlinedButton(
+                            onClick = { showLibraryDialog = true },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, vb.border)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = vb.accent)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Añadir ejercicio", color = vb.accent)
+                        }
                     }
                 }
             } ?: item {
@@ -324,7 +346,8 @@ private fun ExerciseCard(
     exercise: Exercise,
     completedSets: Int,
     progressiveSuggestion: com.voltbody.app.domain.usecase.ProgressiveSuggestion?,
-    onLogSet: () -> Unit
+    onLogSet: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val vb = LocalVoltBodyColors.current
     val isComplete = completedSets >= exercise.sets
@@ -357,38 +380,99 @@ private fun ExerciseCard(
                         color = vb.accent
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                // Sets progress
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    repeat(exercise.sets) { i ->
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (i < completedSets) vb.accent else vb.border)
-                        )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = "Eliminar", tint = ColorError.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (isComplete) ColorSuccess.copy(0.15f) else vb.accent.copy(0.15f))
+                        .border(1.dp, if (isComplete) ColorSuccess.copy(0.4f) else vb.accent.copy(0.4f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (isComplete) Icons.Filled.Check else Icons.Filled.Add,
+                        contentDescription = "Log set",
+                        tint = if (isComplete) ColorSuccess else vb.accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+        if (exercise.gifUrl.isNotBlank()) {
+            ExerciseGifPlayer(
+                gifUrl = exercise.gifUrl,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .padding(top = 12.dp)
+            )
+        }
+        NeonBadge(exercise.muscleGroup, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+// ── Exercise Library Dialog ───────────────────────────────────────────────────
+
+@Composable
+fun ExerciseLibraryDialog(
+    library: List<ExerciseLibraryEntry>,
+    onDismiss: () -> Unit,
+    onAdd: (ExerciseLibraryEntry) -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = library.filter { it.name.contains(searchQuery, ignoreCase = true) || it.muscleGroup.contains(searchQuery, ignoreCase = true) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(vb.surfaceElevated)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Biblioteca de Ejercicios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = null) }
+            }
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Buscar...", color = vb.textMuted) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = vb.accent) },
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border)
+            )
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.weight(1f)) {
+                items(filtered) { entry ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(vb.surface)
+                            .clickable { onAdd(entry) }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(entry.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(entry.muscleGroup, style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        }
+                        Icon(Icons.Default.AddCircleOutline, contentDescription = null, tint = vb.accent)
                     }
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            // Log button
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(if (isComplete) ColorSuccess.copy(0.15f) else vb.accent.copy(0.15f))
-                    .border(1.dp, if (isComplete) ColorSuccess.copy(0.4f) else vb.accent.copy(0.4f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (isComplete) Icons.Filled.Check else Icons.Filled.Add,
-                    contentDescription = "Log set",
-                    tint = if (isComplete) ColorSuccess else vb.accent,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
-        NeonBadge(exercise.muscleGroup, modifier = Modifier.padding(top = 8.dp))
     }
 }
 
@@ -940,10 +1024,19 @@ private fun WorkoutSummaryShareCard(
 ) {
     val vb = LocalVoltBodyColors.current
     val context = LocalContext.current
+    val graphicsLayer = rememberGraphicsLayer()
+    val scope = rememberCoroutineScope()
 
     AppCard {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawWithContent {
+                    graphicsLayer.record {
+                        this@drawWithContent.drawContent()
+                    }
+                    drawLayer(graphicsLayer)
+                },
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header
@@ -1015,30 +1108,27 @@ private fun WorkoutSummaryShareCard(
             // Share button
             Button(
                 onClick = {
-                    val dateStr = java.time.LocalDate.now().format(
-                        java.time.format.DateTimeFormatter.ofPattern("d/MM/yyyy")
-                    )
-                    val text = buildString {
-                        appendLine(context.getString(R.string.share_workout_header))
-                        appendLine()
-                        appendLine(context.getString(R.string.share_workout_focus_prefix, day.focus))
-                        appendLine(context.getString(R.string.share_workout_date_prefix, dateStr))
-                        appendLine()
-                        appendLine(context.getString(R.string.share_workout_stats, setsLogged, formatDuration(duration), streak))
-                        appendLine()
-                        day.exercises.take(5).forEach { ex -> appendLine("• ${ex.name} — ${ex.sets}×${ex.reps}") }
-                        if (day.exercises.size > 5)
-                            appendLine(context.getString(R.string.share_workout_more_exercises, day.exercises.size - 5))
-                        appendLine()
-                        appendLine(context.getString(R.string.share_workout_hashtags))
+                    scope.launch {
+                        try {
+                            val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+                            val dateStr = java.time.LocalDate.now().format(
+                                java.time.format.DateTimeFormatter.ofPattern("d/MM/yyyy")
+                            )
+                            val text = buildString {
+                                appendLine(context.getString(R.string.share_workout_header))
+                                appendLine()
+                                appendLine(context.getString(R.string.share_workout_focus_prefix, day.focus))
+                                appendLine(context.getString(R.string.share_workout_date_prefix, dateStr))
+                                appendLine()
+                                appendLine(context.getString(R.string.share_workout_stats, setsLogged, formatDuration(duration), streak))
+                                appendLine()
+                                appendLine(context.getString(R.string.share_workout_hashtags))
+                            }
+                            com.voltbody.app.util.ShareUtils.shareBitmap(context, bitmap, text)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     }
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        putExtra(Intent.EXTRA_TEXT, text)
-                        type = "text/plain"
-                    }
-                    context.startActivity(
-                        Intent.createChooser(sendIntent, context.getString(R.string.share_workout_chooser_title))
-                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),

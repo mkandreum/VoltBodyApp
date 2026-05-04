@@ -27,7 +27,10 @@ data class CalendarUiState(
     val weekWorkouts: Int = 0,
     val weekSets: Int = 0,
     val weekStreak: Int = 0,
-    val isRescheduling: Boolean = false
+    val isRescheduling: Boolean = false,
+    val selectedDayLogs: List<WorkoutLog> = emptyList(),
+    val dayProgress: Float = 0f,
+    val diet: DietPlan? = null
 )
 
 
@@ -47,9 +50,10 @@ class CalendarViewModel @Inject constructor(
             combine(
                 appViewModel.routine,
                 appViewModel.workoutLogs,
+                appViewModel.diet,
                 _displayMonth,
                 _selectedDay
-            ) { routine, logs, displayMonth, selectedDay ->
+            ) { routine, logs, diet, displayMonth, selectedDay ->
                 val routineByDay = mapRoutineByWeekday(routine)
                 val workoutWeekdays = routineByDay.mapIndexed { i, d -> if (d != null) i else -1 }.filter { it >= 0 }.toSet()
 
@@ -65,22 +69,18 @@ class CalendarViewModel @Inject constructor(
                         ?.takeIf { it.year == displayMonth.year && it.monthValue == displayMonth.monthValue }
                 }.toSet()
 
-                // Selected day workout
-                val selectedDayWorkout = selectedDay?.let { d ->
-                    val idx = getMondayFirstIndex(d)
-                    routineByDay[idx]
-                }
+                // Selected day logs
+                val selectedDayLogs = selectedDay?.let { d ->
+                    logs.filter { it.date.take(10) == d.toString() }
+                } ?: emptyList()
 
-                // This week stats
-                val wf = WeekFields.of(Locale("es"))
-                val today = LocalDate.now()
-                val monday = today.with(wf.dayOfWeek(), 1)
-                val sunday = monday.plusDays(6)
-                val weekLogs = logs.filter {
-                    runCatching { LocalDate.parse(it.date.take(10)) }.getOrNull()?.let { d -> d >= monday && d <= sunday } == true
-                }
-                val weekWorkouts = weekLogs.map { it.date.take(10) }.distinct().size
-                val weekSets = weekLogs.size
+                // Day progress
+                val dayProgress = if (selectedDayWorkout != null && selectedDayWorkout.exercises.isNotEmpty()) {
+                    val totalTargetSets = selectedDayWorkout.exercises.sumOf { it.sets }
+                    val doneSets = selectedDayLogs.size
+                    if (totalTargetSets > 0) doneSets.toFloat() / totalTargetSets else 0f
+                } else 0f
+
                 val streak = computeSmartStreak(logs, routine)
 
                 CalendarUiState(
@@ -91,7 +91,10 @@ class CalendarViewModel @Inject constructor(
                     completedDaysInMonth = completedDays,
                     weekWorkouts = weekWorkouts,
                     weekSets = weekSets,
-                    weekStreak = streak
+                    weekStreak = streak,
+                    selectedDayLogs = selectedDayLogs,
+                    dayProgress = dayProgress,
+                    diet = diet
                 )
             }.collect { _uiState.value = it }
         }

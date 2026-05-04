@@ -70,6 +70,11 @@ data class HomeState(
     val stepsToday: Long = 0,
     val healthConnectAvailable: Boolean = false,
     val healthPermissionsGranted: Boolean = false,
+    
+    // ── BLE Heart Rate ────────────────────────────────────────────────────────
+    val bleState: String = "disconnected", // disconnected, connecting, connected, error
+    val bleHeartRate: Int? = null,
+    val bleDeviceName: String? = null,
 
     // ── Meta ──────────────────────────────────────────────────────────────────
     val isLoading: Boolean = true,
@@ -87,7 +92,8 @@ data class TodayWorkoutInfo(
 class HomeViewModel @Inject constructor(
     private val api: ApiService,
     private val appViewModel: AppViewModel,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val bleManager: com.voltbody.app.service.BleHeartRateManager
 ) : ViewModel() {
 
 
@@ -101,6 +107,17 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadData()
+        observeBle()
+    }
+
+    private fun observeBle() {
+        viewModelScope.launch {
+            combine(bleManager.bleState, bleManager.heartRate, bleManager.deviceName) { state, hr, name ->
+                Triple(state, hr, name)
+            }.collect { (state, hr, name) ->
+                _state.update { it.copy(bleState = state, bleHeartRate = hr, bleDeviceName = name) }
+            }
+        }
     }
 
     private fun loadData() {
@@ -405,12 +422,9 @@ class HomeViewModel @Inject constructor(
         )
     }
 
-    fun updateHeartRate(bpm: Int?) {
-        _state.update { it.copy(heartRate = bpm) }
-    }
-
-    fun setBleConnected(connected: Boolean) {
-        _state.update { it.copy(bleConnected = connected) }
+    fun toggleBle() {
+        if (_state.value.bleState == "disconnected") bleManager.connect()
+        else bleManager.disconnect()
     }
 
     fun refresh() {

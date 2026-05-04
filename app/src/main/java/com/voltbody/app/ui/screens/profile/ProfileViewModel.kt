@@ -25,9 +25,14 @@ data class ProfileState(
     val successMessage: String? = null,
     val weightLogs: List<WeightLog> = emptyList(),
     val totalWorkoutLogs: Int = 0,
-    val completedWeeklyGoals: Set<String> = emptySet(),
+    val completedWeeklyGoals: List<WeeklyGoal> = emptyList(),
     val notificationsEnabled: Boolean = false,
-    val personalRecords: List<PersonalRecord> = emptyList()
+    val personalRecords: List<PersonalRecord> = emptyList(),
+    val progressPhotos: List<ProgressPhoto> = emptyList(),
+    val motivationPhrase: String = "",
+    val motivationPhoto: String? = null,
+    val profilePhoto: String? = null,
+    val theme: AppTheme = AppTheme.VERDE_NEGRO
 )
 
 @HiltViewModel
@@ -53,14 +58,30 @@ class ProfileViewModel @Inject constructor(
                 appViewModel.weightLogs,
                 appViewModel.routine,
                 appViewModel.notificationsEnabled,
-                _completedGoals
-            ) { user, profile, workoutLogs, weightLogs, routine, notifs, goals ->
+                appViewModel.weeklyGoals,
+                appViewModel.progressPhotos,
+                appViewModel.motivationPhrase,
+                appViewModel.motivationPhoto,
+                appViewModel.profilePhoto,
+                appViewModel.theme
+            ) { args ->
+                val user = args[0] as User?
+                val profile = args[1] as UserProfile?
+                val workoutLogs = args[2] as List<WorkoutLog>
+                val weightLogs = args[3] as List<WeightLog>
+                val routine = args[4] as List<WorkoutDay>
+                val notifs = args[5] as Boolean
+                val weeklyGoals = args[6] as List<WeeklyGoal>
+                val photos = args[7] as List<ProgressPhoto>
+                val mPhrase = args[8] as String
+                val mPhoto = args[9] as String?
+                val pPhoto = args[10] as String?
+                val theme = args[11] as AppTheme
                 
                 val prs = workoutLogs
                     .groupBy { it.exerciseId }
                     .mapNotNull { (exId, logs) ->
                         val maxLog = logs.maxByOrNull { it.weight } ?: return@mapNotNull null
-                        // find exercise name
                         val exName = routine.flatMap { it.exercises }.find { it.id == exId }?.name ?: "Ejercicio"
                         PersonalRecord(exName, maxLog.weight, maxLog.reps, maxLog.date)
                     }
@@ -72,7 +93,7 @@ class ProfileViewModel @Inject constructor(
                     email = user?.email ?: "",
                     weightKg = profile?.weight ?: 70f,
                     heightCm = profile?.height?.toInt() ?: 175,
-                    age = 25, // not in profile? keep 25
+                    age = profile?.age ?: 25,
                     goal = profile?.goal ?: "",
                     useMetric = true,
                     isLoading = false,
@@ -81,18 +102,21 @@ class ProfileViewModel @Inject constructor(
                     successMessage = _state.value.successMessage,
                     weightLogs = weightLogs,
                     totalWorkoutLogs = workoutLogs.size,
-                    completedWeeklyGoals = goals,
+                    completedWeeklyGoals = weeklyGoals,
                     notificationsEnabled = notifs,
-                    personalRecords = prs
+                    personalRecords = prs,
+                    progressPhotos = photos,
+                    motivationPhrase = mPhrase,
+                    motivationPhoto = mPhoto,
+                    profilePhoto = pPhoto,
+                    theme = theme
                 )
             }.collect { _state.value = it }
         }
     }
 
-    fun toggleWeeklyGoal(goal: String) {
-        val current = _completedGoals.value.toMutableSet()
-        if (current.contains(goal)) current.remove(goal) else current.add(goal)
-        _completedGoals.value = current
+    fun toggleWeeklyGoal(goalId: String) {
+        appViewModel.toggleWeeklyGoal(goalId)
     }
     
     fun toggleNotifications() {
@@ -157,5 +181,23 @@ class ProfileViewModel @Inject constructor(
             kotlinx.coroutines.delay(1000)
             _isRefreshing.value = false
         }
+    }
+
+    fun addProgressPhoto(url: String) {
+        val photo = ProgressPhoto(java.time.Instant.now().toString(), url)
+        appViewModel.addProgressPhoto(photo)
+    }
+
+    fun setMotivation(phrase: String, photoUrl: String?) {
+        appViewModel.setMotivationPhrase(phrase)
+        photoUrl?.let { appViewModel.setMotivationPhoto(it) }
+    }
+
+    fun setTheme(theme: AppTheme) {
+        appViewModel.setTheme(theme)
+    }
+
+    fun setProfilePhoto(url: String) {
+        appViewModel.setProfilePhoto(url)
     }
 }

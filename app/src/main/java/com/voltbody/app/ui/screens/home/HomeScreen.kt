@@ -113,6 +113,18 @@ fun HomeScreen(
                 }
             }
 
+            // ── BLE Heart Rate card ───────────────────────────────────────────────────
+            item {
+                StaggeredEntrance(3) {
+                    BleHeartRateCard(
+                        state = state.bleState,
+                        heartRate = state.bleHeartRate,
+                        deviceName = state.bleDeviceName,
+                        onToggle = { viewModel.toggleBle() }
+                    )
+                }
+            }
+
             // ── Recovery Score card ───────────────────────────────────────────────
             item {
                 StaggeredEntrance(2) {
@@ -1123,6 +1135,97 @@ fun HealthConnectCard(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Conectar Google Health")
+                }
+            }
+        }
+    }
+}
+
+// ── BLE Heart Rate card ───────────────────────────────────────────────────
+
+@Composable
+fun BleHeartRateCard(
+    state: String,
+    heartRate: Int?,
+    deviceName: String?,
+    onToggle: () -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (state == "connected") 1.2f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(if (state == "connected") vb.accent.copy(alpha = 0.15f) else vb.surfaceElevated),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Favorite,
+                        contentDescription = null,
+                        tint = if (state == "connected") vb.accent else vb.textMuted,
+                        modifier = Modifier.size(24.dp).graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                    )
+                }
+                Column {
+                    Text(
+                        if (state == "connected") "Sensor en vivo" else "Sensor de pulso",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        when (state) {
+                            "connected" -> deviceName ?: "Conectado"
+                            "connecting" -> "Buscando..."
+                            "error" -> "Error de conexión"
+                            else -> "Desconectado"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = vb.textMuted
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (state == "connected" && heartRate != null) {
+                    Text(
+                        "$heartRate",
+                        style = MonoMetric.copy(fontSize = 24.sp, fontWeight = FontWeight.Black),
+                        color = vb.accent
+                    )
+                    Text("BPM", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+                }
+                
+                IconButton(
+                    onClick = onToggle,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (state == "connected") vb.accent else vb.surfaceElevated)
+                ) {
+                    Icon(
+                        imageVector = if (state == "connected") Icons.Default.BluetoothDisabled else Icons.Default.Bluetooth,
+                        contentDescription = null,
+                        tint = if (state == "connected") ColorBlack else vb.accent
+                    )
                 }
             }
         }

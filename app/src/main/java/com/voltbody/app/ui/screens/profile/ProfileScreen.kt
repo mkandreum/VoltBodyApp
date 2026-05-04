@@ -54,17 +54,28 @@ fun ProfileScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(100.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
+                                .background(vb.surfaceElevated)
+                                .border(2.dp, vb.accent, CircleShape)
+                                .clickable { /* Picker logic would go here */ },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = state.name.take(1).uppercase(),
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Black
-                            )
+                            if (state.profilePhoto != null) {
+                                AsyncImage(
+                                    model = state.profilePhoto,
+                                    contentDescription = "Foto de perfil",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Text(
+                                    text = state.name.take(1).uppercase(),
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = vb.accent,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(
@@ -90,30 +101,61 @@ fun ProfileScreen(
                 )
             }
 
+            // ── Motivation ────────────────────────────────────────────────────────
             StaggeredEntrance(2) {
+                MotivationEditor(
+                    phrase = state.motivationPhrase,
+                    photoUrl = state.motivationPhoto,
+                    onSave = viewModel::setMotivation
+                )
+            }
+
+            // ── Weekly Goals ──────────────────────────────────────────────────────
+            StaggeredEntrance(3) {
                 WeeklyGoalsCard(
-                    completedGoals = state.completedWeeklyGoals,
+                    completedGoals = state.completedWeeklyGoals.filter { it.done }.map { it.id }.toSet(),
                     onToggleGoal = viewModel::toggleWeeklyGoal
                 )
             }
 
-            StaggeredEntrance(3) {
+            // ── Progress Photos ───────────────────────────────────────────────────
+            StaggeredEntrance(4) {
+                ProgressPhotosCard(
+                    photos = state.progressPhotos,
+                    onAddPhoto = { 
+                        // Simplified: in a real app we'd open a picker. 
+                        // For this demo, let's just add a placeholder or prompt.
+                    }
+                )
+            }
+
+            // ── Weight Tracking ───────────────────────────────────────────────────
+            StaggeredEntrance(5) {
                 WeightTrackingCard(
                     logs = state.weightLogs,
                     onLogWeight = viewModel::addWeightLog
                 )
             }
 
-            StaggeredEntrance(4) {
+            // ── Personal Records ──────────────────────────────────────────────────
+            StaggeredEntrance(6) {
                 PersonalRecordsCard(records = state.personalRecords)
             }
 
+            // ── Theme Selector ────────────────────────────────────────────────────
+            StaggeredEntrance(7) {
+                ThemeSelector(
+                    selectedTheme = state.theme,
+                    onThemeSelected = viewModel::setTheme
+                )
+            }
+
             // ── Settings ──────────────────────────────────────────────────────────
-            StaggeredEntrance(5) {
+            StaggeredEntrance(8) {
                 AppCard(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Text(
-                            "Ajustes",
+                            "Ajustes de Cuenta",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = ColorWhite
@@ -121,8 +163,8 @@ fun ProfileScreen(
                         Spacer(Modifier.height(12.dp))
 
                         SettingsRow(
-                            icon = Icons.Default.Settings,
-                            label = "Editar Perfil",
+                            icon = Icons.Default.Person,
+                            label = "Editar Datos Físicos",
                             onClick = { 
                                 haptic.perform(HapticType.TICK)
                                 showEditSheet = true 

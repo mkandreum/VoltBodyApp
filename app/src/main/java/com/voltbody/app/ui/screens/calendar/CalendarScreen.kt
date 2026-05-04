@@ -80,57 +80,150 @@ fun CalendarScreen(
         uiState.selectedDayWorkout?.let { workout ->
             item {
                 AppCard {
-                    Text(
-                        uiState.selectedDay?.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("es")))?.replaceFirstChar { it.uppercase() } ?: "",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = vb.textMuted
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(workout.focus, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = vb.accent, modifier = Modifier.weight(1f))
-                        TextButton(
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                uiState.selectedDay?.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("es")))?.replaceFirstChar { it.uppercase() } ?: "",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = vb.textMuted
+                            )
+                            Text(workout.focus, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
+                        }
+                        
+                        CircularProgressRing(
+                            value = uiState.dayProgress,
+                            modifier = Modifier.size(52.dp),
+                            label = "${(uiState.dayProgress * 100).toInt()}%"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
                             onClick = viewModel::toggleRescheduling,
-                            colors = ButtonDefaults.textButtonColors(contentColor = if (uiState.isRescheduling) ColorError else vb.accent)
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (uiState.isRescheduling) ColorError.copy(0.2f) else vb.surface,
+                                contentColor = if (uiState.isRescheduling) ColorError else vb.accent
+                            ),
+                            border = BorderStroke(1.dp, if (uiState.isRescheduling) ColorError.copy(0.5f) else vb.border)
                         ) {
-                            Icon(if (uiState.isRescheduling) Icons.Default.Close else Icons.Default.EventRepeat, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
+                            Icon(if (uiState.isRescheduling) Icons.Default.Close else Icons.Default.EventRepeat, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(if (uiState.isRescheduling) "Cancelar" else "Reprogramar", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     
                     if (uiState.isRescheduling) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Selecciona el nuevo día para este entrenamiento:", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            WEEKDAY_LABELS.forEach { (full, short, _) ->
-                                val targetDayIdx = getMondayFirstIndex(LocalDate.now().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.valueOf(full.uppercase())))) // This is a bit complex, let's simplify
-                                
-                                // Actually, let's just use the index 0-6 directly
-                                val dayOfWeek = java.time.DayOfWeek.of(if (WEEKDAY_LABELS.indexOfFirst { it.first == full } == 0) 1 else WEEKDAY_LABELS.indexOfFirst { it.first == full } + 1)
-                                
-                                OutlinedButton(
-                                    onClick = { 
-                                        val targetDate = uiState.selectedDay?.with(java.time.DayOfWeek.of(WEEKDAY_LABELS.indexOfFirst { it.first == full } + 1))
-                                        targetDate?.let { viewModel.moveWorkout(uiState.selectedDay!!, it) }
-                                    },
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, vb.accent.copy(0.3f)),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorWhite)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(vb.surfaceElevated)
+                                .border(1.dp, vb.accent.copy(0.3f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column {
+                                Text("Mover entrenamiento a:", style = MaterialTheme.typography.labelSmall, color = vb.accent)
+                                Spacer(Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(short)
+                                    WEEKDAY_LABELS.forEach { (full, short, _) ->
+                                        OutlinedButton(
+                                            onClick = { 
+                                                val targetDate = uiState.selectedDay?.with(java.time.DayOfWeek.of(WEEKDAY_LABELS.indexOfFirst { it.first == full } + 1))
+                                                targetDate?.let { viewModel.moveWorkout(uiState.selectedDay!!, it) }
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(1.dp, vb.border)
+                                        ) {
+                                            Text(short, style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        AccentDivider()
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Ejercicios Planificados", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
                     workout.exercises.forEach { ex ->
+                        val setsDone = uiState.selectedDayLogs.count { it.exerciseId == ex.id }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(ex.name, style = MaterialTheme.typography.bodyMedium, color = ColorWhite)
+                                Text("$setsDone/${ex.sets} series completadas", style = MaterialTheme.typography.labelSmall, color = if (setsDone >= ex.sets) ColorSuccess else vb.textMuted)
+                            }
+                            if (setsDone >= ex.sets) {
+                                Icon(Icons.Default.CheckCircle, null, tint = ColorSuccess, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        } ?: item {
+            AppCard {
+                Text("Día de descanso", style = MaterialTheme.typography.titleMedium, color = vb.textMuted)
+                Text("No hay entrenamientos planificados para este día.", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
+            }
+        }
 
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(ex.name, style = MaterialTheme.typography.bodyMedium, color = ColorWhite, modifier = Modifier.weight(1f))
-                            NeonBadge("${ex.sets}×${ex.reps}")
+        // ── Selected day logs (History) ───────────────────────────────────────
+        if (uiState.selectedDayLogs.isNotEmpty()) {
+            item {
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.History, null, tint = vb.accent)
+                        Text("Registros del Día", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    uiState.selectedDayLogs.forEach { log ->
+                        val exName = uiState.selectedDayWorkout?.exercises?.find { it.id == log.exerciseId }?.name ?: "Ejercicio"
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(exName, style = MaterialTheme.typography.bodySmall, color = ColorWhite)
+                            Text("${log.weight}kg x ${log.reps}", style = MonoMetric.copy(fontSize = 13.sp), color = vb.accent)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Diet Summary ──────────────────────────────────────────────────────
+        uiState.diet?.let { diet ->
+            item {
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.LocalFireDepartment, null, tint = ColorError)
+                        Text("Objetivo Nutricional", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("${diet.dailyCalories}", style = MonoMetric.copy(fontSize = 24.sp), color = ColorWhite)
+                            Text("kcal diarias", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            MacroBadge("P", diet.macros.protein, Color(0xFFF87171))
+                            MacroBadge("C", diet.macros.carbs, Color(0xFF34D399))
+                            MacroBadge("G", diet.macros.fat, Color(0xFFFBBF24))
                         }
                     }
                 }
@@ -140,7 +233,7 @@ fun CalendarScreen(
         // ── Weekly summary stats ──────────────────────────────────────────────
         item {
             AppCard {
-                SectionHeader(title = "📊 Esta semana")
+                SectionHeader(title = "📊 Resumen Semanal")
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     StatPill("${uiState.weekWorkouts}", "Entrenos", modifier = Modifier.weight(1f))

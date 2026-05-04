@@ -225,9 +225,36 @@ class WorkoutViewModel @Inject constructor(
             // Adjust selected index to follow the moved item
             if (_uiState.value.selectedDayIndex == index) {
                 _uiState.value = _uiState.value.copy(selectedDayIndex = index + 1)
-            } else if (_uiState.value.selectedDayIndex == index + 1) {
-                _uiState.value = _uiState.value.copy(selectedDayIndex = index)
             }
+        }
+    }
+
+    fun addExerciseToDay(dayIndex: Int, libraryEntry: ExerciseLibraryEntry) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (dayIndex in currentRoutine.indices) {
+            val day = currentRoutine[dayIndex]
+            val newExercise = Exercise(
+                id = "${libraryEntry.id}_${System.currentTimeMillis()}",
+                name = libraryEntry.name,
+                nameEn = libraryEntry.nameEn,
+                sets = libraryEntry.defaultSets,
+                reps = libraryEntry.defaultReps,
+                muscleGroup = libraryEntry.muscleGroup,
+                exerciseType = libraryEntry.exerciseType.name
+            )
+            val updatedDay = day.copy(exercises = day.exercises + newExercise)
+            currentRoutine[dayIndex] = updatedDay
+            appViewModel.setRoutine(currentRoutine)
+        }
+    }
+
+    fun removeExerciseFromDay(dayIndex: Int, exerciseId: String) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (dayIndex in currentRoutine.indices) {
+            val day = currentRoutine[dayIndex]
+            val updatedDay = day.copy(exercises = day.exercises.filter { it.id != exerciseId })
+            currentRoutine[dayIndex] = updatedDay
+            appViewModel.setRoutine(currentRoutine)
         }
     }
 
