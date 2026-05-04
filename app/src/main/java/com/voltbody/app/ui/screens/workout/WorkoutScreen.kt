@@ -39,8 +39,13 @@ fun WorkoutScreen(
 ) {
     val vb = LocalVoltBodyColors.current
     val uiState by viewModel.uiState.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize().background(vb.bg)) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refresh() },
+        modifier = Modifier.fillMaxSize()
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 60.dp),
@@ -48,69 +53,93 @@ fun WorkoutScreen(
         ) {
             // ── Day selector ─────────────────────────────────────────────────
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Rutina Semanal",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
-                        color = ColorWhite
-                    )
-                    var showReorder by remember { mutableStateOf(false) }
-                    IconButton(onClick = { showReorder = true }, modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.surface)) {
-                        Icon(Icons.Filled.SwapVert, contentDescription = "Reordenar días", tint = vb.textMuted)
-                    }
-                    if (showReorder) {
-                        ReorderDaysDialog(
-                            routine = uiState.routine,
-                            onDismiss = { showReorder = false },
-                            onMoveUp = viewModel::moveDayUp,
-                            onMoveDown = viewModel::moveDayDown
+                StaggeredEntrance(0) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Rutina Semanal",
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                                color = ColorWhite
+                            )
+                            var showReorder by remember { mutableStateOf(false) }
+                            IconButton(
+                                onClick = { showReorder = true },
+                                modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.surface)
+                            ) {
+                                Icon(Icons.Filled.SwapVert, contentDescription = "Reordenar días", tint = vb.textMuted)
+                            }
+                            if (showReorder) {
+                                ReorderDaysDialog(
+                                    routine = uiState.routine,
+                                    onDismiss = { showReorder = false },
+                                    onMoveUp = viewModel::moveDayUp,
+                                    onMoveDown = viewModel::moveDayDown
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        WeekDaySelector(
+                            selectedDay = uiState.selectedDayIndex,
+                            completedDays = uiState.completedDays,
+                            onDaySelected = viewModel::selectDay
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                WeekDaySelector(
-                    selectedDay = uiState.selectedDayIndex,
-                    completedDays = uiState.completedDays,
-                    onDaySelected = viewModel::selectDay
-                )
             }
 
             // ── Today's workout header ────────────────────────────────────────
             uiState.currentWorkoutDay?.let { day ->
                 item {
-                    AppCard {
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text(day.day, style = MaterialTheme.typography.titleSmall, color = vb.textMuted)
-                                Text(day.focus, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
-                            }
-                            CircularProgressRing(
-                                value = uiState.dayProgress / 100f,
-                                modifier = Modifier.size(52.dp),
-                                label = "${uiState.dayProgress}%"
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // Session timer
-                        if (uiState.sessionRunning) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Outlined.Timer, contentDescription = null, tint = vb.accent, modifier = Modifier.size(16.dp))
-                                Text(formatDuration(uiState.sessionElapsed), style = MonoMetric.copy(fontSize = 16.sp), color = vb.accent)
-                            }
-                        } else {
-                            Button(
-                                onClick = viewModel::startSession,
+                    StaggeredEntrance(1) {
+                        AppCard {
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = vb.accent, contentColor = ColorBlack)
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Iniciar sesión", fontWeight = FontWeight.Black)
+                                Column {
+                                    Text(day.day, style = MaterialTheme.typography.titleSmall, color = vb.textMuted)
+                                    Text(
+                                        day.focus,
+                                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                                        color = vb.accent
+                                    )
+                                }
+                                CircularProgressRing(
+                                    value = uiState.dayProgress / 100f,
+                                    modifier = Modifier.size(52.dp),
+                                    label = "${uiState.dayProgress}%"
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Session timer
+                            if (uiState.sessionRunning) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Outlined.Timer, contentDescription = null, tint = vb.accent, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        formatDuration(uiState.sessionElapsed),
+                                        style = MonoMetric.copy(fontSize = 16.sp),
+                                        color = vb.accent
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = viewModel::startSession,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = vb.accent, contentColor = ColorBlack)
+                                ) {
+                                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Iniciar sesión", fontWeight = FontWeight.Black)
+                                }
                             }
                         }
                     }
@@ -119,18 +148,22 @@ fun WorkoutScreen(
                 // ── Rest timer ────────────────────────────────────────────────
                 if (uiState.restSecondsLeft > 0) {
                     item {
-                        RestTimerCard(secondsLeft = uiState.restSecondsLeft, total = 90, onSkip = viewModel::skipRest)
+                        StaggeredEntrance(2) {
+                            RestTimerCard(secondsLeft = uiState.restSecondsLeft, total = 90, onSkip = viewModel::skipRest)
+                        }
                     }
                 }
 
                 // ── Exercise list ─────────────────────────────────────────────
-                items(day.exercises, key = { it.id }) { exercise ->
-                    ExerciseCard(
-                        exercise = exercise,
-                        completedSets = uiState.completedSets[exercise.id] ?: 0,
-                        progressiveSuggestion = uiState.progressiveSuggestions[exercise.id],
-                        onLogSet = { viewModel.openLogSheet(exercise) }
-                    )
+                itemsIndexed(day.exercises, key = { _, it -> it.id }) { index, exercise ->
+                    StaggeredEntrance(index + 3) {
+                        ExerciseCard(
+                            exercise = exercise,
+                            completedSets = uiState.completedSets[exercise.id] ?: 0,
+                            progressiveSuggestion = uiState.progressiveSuggestions[exercise.id],
+                            onLogSet = { viewModel.openLogSheet(exercise) }
+                        )
+                    }
                 }
             } ?: item {
                 Box(

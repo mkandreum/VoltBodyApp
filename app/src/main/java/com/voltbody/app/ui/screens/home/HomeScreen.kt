@@ -29,7 +29,7 @@ import com.voltbody.app.domain.model.Achievement
 import com.voltbody.app.domain.usecase.FatigueEntry
 import com.voltbody.app.domain.usecase.FatigueStatus
 import com.voltbody.app.domain.usecase.fatigueStatusLabel
-import com.voltbody.app.ui.components.VoltBodyLoadingIndicator
+import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,131 +41,175 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refresh() },
+        modifier = Modifier.fillMaxSize()
     ) {
-        // ── Greeting ──────────────────────────────────────────────────────────
-        item {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        "Hola, ${state.userName} ⚡",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        state.greeting,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // ── Greeting ──────────────────────────────────────────────────────────
+            item {
+                StaggeredEntrance(0) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "Hola, ${state.userName} ⚡",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                state.greeting,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        StreakBadge(days = state.streakDays)
+                    }
+                }
+            }
+
+            // ── XP / Level card ───────────────────────────────────────────────────
+            item {
+                StaggeredEntrance(1) {
+                    XpLevelCard(
+                        level = state.xpLevel,
+                        xpCurrent = state.xpCurrent,
+                        xpToNext = state.xpToNext,
+                        todayXP = state.todayXP
                     )
                 }
-                StreakBadge(days = state.streakDays)
             }
-        }
 
-        // ── XP / Level card ───────────────────────────────────────────────────
-        item {
-            XpLevelCard(
-                level = state.xpLevel,
-                xpCurrent = state.xpCurrent,
-                xpToNext = state.xpToNext,
-                todayXP = state.todayXP
-            )
-        }
-
-        // ── Recovery Score card ───────────────────────────────────────────────
-        item {
-            RecoveryScoreCard(
-                score = state.recoveryScore,
-                sleepHours = state.sleepHours,
-                hrv = state.hrv,
-                onLogRecovery = { viewModel.openRecoveryCheckin() }
-            )
-        }
-
-        // ── Motivation card (enhanced with photo) ─────────────────────────────
-        if (state.motivationPhrase.isNotEmpty() || state.motivationPhotoUrl != null) {
+            // ── Recovery Score card ───────────────────────────────────────────────
             item {
-                MotivationCard(
-                    phrase = state.motivationPhrase,
-                    photoUrl = state.motivationPhotoUrl
-                )
+                StaggeredEntrance(2) {
+                    RecoveryScoreCard(
+                        score = state.recoveryScore,
+                        sleepHours = state.sleepHours,
+                        hrv = state.hrv,
+                        onLogRecovery = { viewModel.openRecoveryCheckin() }
+                    )
+                }
             }
-        }
 
-        // ── Weekly progress widget ────────────────────────────────────────────
-        item {
-            WeeklyProgressCard(
-                workoutsThisWeek = state.weeklyWorkouts,
-                targetWorkouts = state.weeklyTarget,
-                totalVolumeKg = state.weeklyVolumeKg,
-                dailyVolume = state.dailyVolumeKg
-            )
-        }
+            // ── Motivation card (enhanced with photo) ─────────────────────────────
+            if (state.motivationPhrase.isNotEmpty() || state.motivationPhotoUrl != null) {
+                item {
+                    StaggeredEntrance(3) {
+                        MotivationCard(
+                            phrase = state.motivationPhrase,
+                            photoUrl = state.motivationPhotoUrl
+                        )
+                    }
+                }
+            }
 
-        // ── Today's workout card ──────────────────────────────────────────────
-        state.todayWorkout?.let { workout ->
+            // ── Weekly progress widget ────────────────────────────────────────────
             item {
-                TodayWorkoutCard(
-                    workoutName = workout.name,
-                    exerciseCount = workout.exerciseCount,
-                    estimatedMinutes = workout.estimatedMinutes,
-                    onStart = { onStartWorkout(workout.id) }
-                )
+                StaggeredEntrance(4) {
+                    WeeklyProgressCard(
+                        workoutsThisWeek = state.weeklyWorkouts,
+                        targetWorkouts = state.weeklyTarget,
+                        totalVolumeKg = state.weeklyVolumeKg,
+                        dailyVolume = state.dailyVolumeKg
+                    )
+                }
             }
-        } ?: item {
-            if (state.isLoading) VoltBodyLoadingIndicator()
+
+            // ── Today's workout card ──────────────────────────────────────────────
+            state.todayWorkout?.let { workout ->
+                item {
+                    StaggeredEntrance(5) {
+                        TodayWorkoutCard(
+                            workoutName = workout.name,
+                            exerciseCount = workout.exerciseCount,
+                            estimatedMinutes = workout.estimatedMinutes,
+                            onStart = { onStartWorkout(workout.id) }
+                        )
+                    }
+                }
+            } ?: item {
+                if (state.isLoading) VoltBodyLoadingIndicator()
+            }
+
+            // ── Fatigue Index ─────────────────────────────────────────────────────
+            if (state.fatigueEntries.isNotEmpty()) {
+                item {
+                    StaggeredEntrance(6) {
+                        FatigueIndexCard(entries = state.fatigueEntries)
+                    }
+                }
+            }
+
+            // ── Progress Report (AI) ──────────────────────────────────────────────
+            item {
+                StaggeredEntrance(7) {
+                    ProgressReportCard(
+                        report = state.report,
+                        isLoading = state.reportLoading,
+                        progress = state.reportProgress,
+                        onGenerate = { viewModel.generateProgressReport() }
+                    )
+                }
+            }
+
+            // ── Day Timeline ──────────────────────────────────────────────────────
+            if (state.timelineItems.isNotEmpty()) {
+                item {
+                    StaggeredEntrance(8) {
+                        DayTimelineCard(items = state.timelineItems)
+                    }
+                }
+            }
+
+            // ── Quick Actions ─────────────────────────────────────────────────────
+            item {
+                StaggeredEntrance(9) {
+                    QuickActionsCard(
+                        onQuickLog = { viewModel.quickLogSet() },
+                        onNavigateToAiCoach = onNavigateToAiCoach
+                    )
+                }
+            }
+
+            // ── Volume chart ──────────────────────────────────────────────────────
+            if (state.dailyVolumeKg.isNotEmpty()) {
+                item {
+                    StaggeredEntrance(10) {
+                        VolumeChartCard(dailyVolume = state.dailyVolumeKg)
+                    }
+                }
+            }
+
+            // ── AI Coach card ─────────────────────────────────────────────────────
+            item {
+                StaggeredEntrance(11) {
+                    AiCoachCard(onNavigate = onNavigateToAiCoach)
+                }
+            }
+
+            // ── Recent achievements (enhanced with labels & descriptions) ─────────
+            if (state.recentAchievements.isNotEmpty()) {
+                item {
+                    StaggeredEntrance(12) {
+                        RecentAchievementsCard(achievements = state.recentAchievements)
+                    }
+                }
+            }
+
+            // Bottom spacer for nav bar
+            item { Spacer(Modifier.height(80.dp)) }
         }
-
-        // ── Fatigue Index ─────────────────────────────────────────────────────
-        if (state.fatigueEntries.isNotEmpty()) {
-            item { FatigueIndexCard(entries = state.fatigueEntries) }
-        }
-
-        // ── Progress Report (AI) ──────────────────────────────────────────────
-        item {
-            ProgressReportCard(
-                report = state.report,
-                isLoading = state.reportLoading,
-                progress = state.reportProgress,
-                onGenerate = { viewModel.generateProgressReport() }
-            )
-        }
-
-        // ── Day Timeline ──────────────────────────────────────────────────────
-        if (state.timelineItems.isNotEmpty()) {
-            item { DayTimelineCard(items = state.timelineItems) }
-        }
-
-        // ── Quick Actions ─────────────────────────────────────────────────────
-        item {
-            QuickActionsCard(
-                onQuickLog = { viewModel.quickLogSet() },
-                onNavigateToAiCoach = onNavigateToAiCoach
-            )
-        }
-
-        // ── Volume chart ──────────────────────────────────────────────────────
-        if (state.dailyVolumeKg.isNotEmpty()) {
-            item { VolumeChartCard(dailyVolume = state.dailyVolumeKg) }
-        }
-
-        // ── AI Coach card ─────────────────────────────────────────────────────
-        item { AiCoachCard(onNavigate = onNavigateToAiCoach) }
-
-        // ── Recent achievements (enhanced with labels & descriptions) ─────────
-        if (state.recentAchievements.isNotEmpty()) {
-            item { RecentAchievementsCard(achievements = state.recentAchievements) }
-        }
-
-        // Bottom spacer for nav bar
-        item { Spacer(Modifier.height(80.dp)) }
     }
 
     // ── Recovery check-in dialog ──────────────────────────────────────────────
@@ -188,10 +232,8 @@ fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int, todayXP: Int = 0) {
         label = "xp_progress"
     )
     val vb = LocalVoltBodyColors.current
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    AppCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(
@@ -256,7 +298,7 @@ fun RecoveryScoreCard(
         score >= 50 -> Color(0xFFFFC107)
         else -> Color(0xFFF44336)
     }
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(20.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -305,10 +347,8 @@ fun RecoveryScoreCard(
 @Composable
 fun MotivationCard(phrase: String, photoUrl: String? = null) {
     val vb = LocalVoltBodyColors.current
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    AppCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Box(modifier = Modifier.fillMaxWidth().height(170.dp)) {
             if (photoUrl != null) {
@@ -365,10 +405,9 @@ fun MotivationCard(phrase: String, photoUrl: String? = null) {
 
 @Composable
 fun AiCoachCard(onNavigate: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigate),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onNavigate
     ) {
         Row(
             Modifier.padding(16.dp).fillMaxWidth(),
@@ -399,7 +438,7 @@ fun AiCoachCard(onNavigate: () -> Unit) {
 @Composable
 fun RecentAchievementsCard(achievements: List<Achievement>) {
     val vb = LocalVoltBodyColors.current
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
             Text("🏆 Logros recientes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
@@ -522,9 +561,8 @@ fun WeeklyProgressCard(
         animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
         label = "week_card_scale"
     )
-    Card(
-        modifier = Modifier.fillMaxWidth().graphicsLayer { scaleX = scale; scaleY = scale },
-        shape = RoundedCornerShape(20.dp)
+    AppCard(
+        modifier = Modifier.fillMaxWidth().graphicsLayer { scaleX = scale; scaleY = scale }
     ) {
         Column(Modifier.padding(20.dp)) {
             Text("Esta semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -563,10 +601,8 @@ fun TodayWorkoutCard(
     estimatedMinutes: Int,
     onStart: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    AppCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -592,7 +628,7 @@ fun TodayWorkoutCard(
 fun VolumeChartCard(dailyVolume: List<Float>) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
             Text("Volumen diario (kg)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))

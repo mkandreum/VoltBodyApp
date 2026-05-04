@@ -43,6 +43,9 @@ class WorkoutViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private var sessionTimerJob: Job? = null
     private var restTimerJob: Job? = null
 
@@ -232,5 +235,14 @@ class WorkoutViewModel @Inject constructor(
         sessionTimerJob?.cancel()
         restTimerJob?.cancel()
         super.onCleared()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            appViewModel.syncData()
+            delay(1000)
+            _isRefreshing.value = false
+        }
     }
 }

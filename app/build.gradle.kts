@@ -117,4 +117,6 @@ dependencies {
 
     // Permissions
     implementation(libs.accompanist.permissions)
+    // Health Connect
+    implementation(libs.androidx.health.connect)
 }

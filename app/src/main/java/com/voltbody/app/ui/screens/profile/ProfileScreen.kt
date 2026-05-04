@@ -17,7 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.voltbody.app.util.*
+import com.voltbody.app.ui.components.*
+import com.voltbody.app.ui.screens.profile.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,121 +26,146 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val haptic = rememberHaptic()
     var showEditSheet by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
 
-    // Card spring entrance
-    var appeared by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appeared = true }
-    val cardScale by animateFloatAsState(
-        targetValue = if (appeared) 1f else 0.93f,
-        animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
-        label = "profile_card"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refresh() },
+        modifier = Modifier.fillMaxSize()
     ) {
-        // ── Avatar + name ─────────────────────────────────────────────────────
-        Card(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer { scaleX = cardScale; scaleY = cardScale },
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+            // ── Avatar + name ─────────────────────────────────────────────────────
+            StaggeredEntrance(0) {
+                AppCard(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = state.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(state.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Text(state.email, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-            }
-        }
-
-        // ── Physical data card ────────────────────────────────────────────────
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(Modifier.padding(20.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Datos físicos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    IconButton(onClick = { showEditSheet = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar")
+                    Column(
+                        Modifier.padding(24.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = state.name.take(1).uppercase(),
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            state.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorWhite
+                        )
+                        Text(
+                            state.email,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LocalVoltBodyColors.current.textMuted
+                        )
                     }
                 }
-                Divider(Modifier.padding(vertical = 8.dp))
-                PhysicalDataRow("Peso", if (state.useMetric) "${state.weightKg} kg" else "${"%.1f".format(state.weightKg * 2.20462f)} lb")
-                PhysicalDataRow("Altura", if (state.useMetric) "${state.heightCm} cm" else "${state.heightCm / 2.54f |> { "%.0f".format(it / 12) }}'${"%.0f".format(it % 12)}\"")
-                PhysicalDataRow("Edad", "${state.age} años")
-                PhysicalDataRow("Objetivo", state.goal)
             }
-        }
 
-        // ── Units toggle ──────────────────────────────────────────────────────
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-            Row(
-                Modifier.padding(16.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Unidades", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                    Text(
-                        if (state.useMetric) "kg / cm" else "lb / ft",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Métrico", style = MaterialTheme.typography.labelMedium)
-                    Switch(
-                        checked = !state.useMetric,
-                        onCheckedChange = {
-                            haptic.perform(HapticType.TICK)
-                            viewModel.toggleUnits()
-                        }
-                    )
-                    Text("Imperial", style = MaterialTheme.typography.labelMedium)
+            StaggeredEntrance(1) {
+                FitnessStatsCard(
+                    totalLogs = state.totalWorkoutLogs,
+                    weeklyGoalProgress = if (state.completedWeeklyGoals.isNotEmpty()) state.completedWeeklyGoals.size / 5f else 0f,
+                    weightLogsCount = state.weightLogs.size
+                )
+            }
+
+            StaggeredEntrance(2) {
+                WeeklyGoalsCard(
+                    completedGoals = state.completedWeeklyGoals,
+                    onToggleGoal = viewModel::toggleWeeklyGoal
+                )
+            }
+
+            StaggeredEntrance(3) {
+                WeightTrackingCard(
+                    logs = state.weightLogs,
+                    onLogWeight = viewModel::addWeightLog
+                )
+            }
+
+            StaggeredEntrance(4) {
+                PersonalRecordsCard(records = state.personalRecords)
+            }
+
+            // ── Settings ──────────────────────────────────────────────────────────
+            StaggeredEntrance(5) {
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Ajustes",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorWhite
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        SettingsRow(
+                            icon = Icons.Default.Settings,
+                            label = "Editar Perfil",
+                            onClick = { 
+                                haptic.perform(HapticType.TICK)
+                                showEditSheet = true 
+                            }
+                        )
+                        SettingsRow(
+                            icon = Icons.Default.Lock,
+                            label = "Cambiar Contraseña",
+                            onClick = { 
+                                haptic.perform(HapticType.TICK)
+                                showPasswordDialog = true 
+                            }
+                        )
+                        SettingsRow(
+                            icon = Icons.Default.Straighten,
+                            label = if (state.useMetric) "Usar Sistema Imperial" else "Usar Sistema Métrico",
+                            onClick = {
+                                haptic.perform(HapticType.TICK)
+                                viewModel.toggleUnits()
+                            }
+                        )
+                        SettingsRow(
+                            icon = Icons.Default.Notifications,
+                            label = if (state.notificationsEnabled) "Desactivar Notificaciones" else "Activar Notificaciones",
+                            onClick = {
+                                haptic.perform(HapticType.TICK)
+                                viewModel.toggleNotifications()
+                            }
+                        )
+                        SettingsRow(
+                            icon = Icons.Default.ExitToApp,
+                            label = "Cerrar Sesión",
+                            onClick = {
+                                haptic.perform(HapticType.IMPACT)
+                                viewModel.logout()
+                            },
+                            isLast = true
+                        )
+                    }
                 }
             }
-        }
 
-        // ── Security ──────────────────────────────────────────────────────────
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-            ListItem(
-                headlineContent = { Text("Cambiar contraseña") },
-                leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    haptic.perform(HapticType.TICK)
-                    showPasswordDialog = true
-                }
-            )
+            Spacer(Modifier.height(80.dp))
         }
     }
 

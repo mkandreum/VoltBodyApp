@@ -125,6 +125,12 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    fun syncData() {
+        viewModelScope.launch {
+            rehydrate()
+        }
+    }
+
     private suspend fun rehydrate() {
         prefs.authToken.first()?.let { token ->
             _authToken.value = token

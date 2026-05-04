@@ -104,15 +104,32 @@ fun VoltBodyTheme(
     val colorScheme = remember(appTheme) { buildColorScheme(vbColors) }
 
     CompositionLocalProvider(LocalVoltBodyColors provides vbColors) {
-        // MaterialExpressiveTheme enables MotionScheme.Expressive + expressive
-        // component variants (e.g. spring-based transitions, new shapes) while
-        // remaining fully API-compatible with MaterialTheme consumers.
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             typography = VoltBodyTypography,
             shapes = VoltBodyShapes,
             motionScheme = MotionScheme.expressive(),
-            content = content
+            content = {
+                Surface(
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                    color = Color.Transparent
+                ) {
+                    Box(
+                        modifier = androidx.compose.ui.Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        vbColors.bg,
+                                        Color(0xFF000000)
+                                    )
+                                )
+                            )
+                    ) {
+                        content()
+                    }
+                }
+            }
         )
     }
 }

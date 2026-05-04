@@ -28,6 +28,9 @@ import com.voltbody.app.ui.screens.diet.components.FoodPreferencesCard
 import com.voltbody.app.ui.screens.diet.components.MacroTipsCard
 import com.voltbody.app.ui.screens.diet.components.SpecialDishCalculator
 import com.voltbody.app.ui.theme.*
+import com.voltbody.app.util.HapticType
+import com.voltbody.app.util.perform
+import com.voltbody.app.util.rememberHaptic
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -46,85 +49,116 @@ fun DietScreen(
 ) {
     val vb = LocalVoltBodyColors.current
     val uiState by viewModel.uiState.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(vb.bg),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 60.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refresh() },
+        modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            Text(
-                "Plan Nutricional",
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
-                color = ColorWhite
-            )
-        }
-
-        // ── Date navigation ───────────────────────────────────────────
-        item {
-            DateNavigationBar(
-                selectedDate = uiState.selectedDate,
-                isToday = uiState.isToday,
-                onPrevious = viewModel::goToPreviousDay,
-                onNext = viewModel::goToNextDay,
-                onToday = viewModel::goToToday
-            )
-        }
-
-        // ── Macros summary ────────────────────────────────────────────
-        uiState.diet?.let { diet ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 60.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             item {
-                MacrosSummaryCard(
-                    diet = diet,
-                    eatenCalories = uiState.eatenCalories,
-                    remainingCalories = uiState.remainingCalories,
-                    totalMeals = diet.meals.size,
-                    eatenMeals = uiState.eatenMealIds.size,
-                    eatenProtein = uiState.eatenProtein,
-                    eatenCarbs = uiState.eatenCarbs,
-                    eatenFat = uiState.eatenFat
-                )
+                StaggeredEntrance(0) {
+                    Text(
+                        "Plan Nutricional",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                        color = ColorWhite
+                    )
+                }
             }
 
+            // ── Date navigation ───────────────────────────────────────────
             item {
-                MacroTipsCard()
+                StaggeredEntrance(1) {
+                    DateNavigationBar(
+                        selectedDate = uiState.selectedDate,
+                        isToday = uiState.isToday,
+                        onPrevious = viewModel::goToPreviousDay,
+                        onNext = viewModel::goToNextDay,
+                        onToday = viewModel::goToToday
+                    )
+                }
             }
 
-            // ── Meals ────────────────────────────────────────────────
-            items(diet.meals, key = { it.id }) { meal ->
-                val isEaten = uiState.eatenMealIds.contains(meal.id)
-                MealCard(
-                    meal = meal,
-                    isEaten = isEaten,
-                    isSwapping = uiState.swappingMealId == meal.id,
-                    onToggleEaten = { viewModel.toggleMealEaten(meal.id) },
-                    onSwap = { viewModel.swapMeal(meal) }
-                )
-            }
-
-            item {
-                SpecialDishCalculator()
-            }
-            
-            uiState.foodPreferences?.let { prefs ->
+            // ── Macros summary ────────────────────────────────────────────
+            uiState.diet?.let { diet ->
                 item {
-                    FoodPreferencesCard(preferences = prefs)
+                    StaggeredEntrance(2) {
+                        MacrosSummaryCard(
+                            diet = diet,
+                            eatenCalories = uiState.eatenCalories,
+                            remainingCalories = uiState.remainingCalories,
+                            totalMeals = diet.meals.size,
+                            eatenMeals = uiState.eatenMealIds.size,
+                            eatenProtein = uiState.eatenProtein,
+                            eatenCarbs = uiState.eatenCarbs,
+                            eatenFat = uiState.eatenFat
+                        )
+                    }
+                }
+
+                item {
+                    StaggeredEntrance(3) {
+                        MacroTipsCard()
+                    }
+                }
+
+                // ── Meals ────────────────────────────────────────────────
+                itemsIndexed(diet.meals, key = { _, it -> it.id }) { index, meal ->
+                    val isEaten = uiState.eatenMealIds.contains(meal.id)
+                    StaggeredEntrance(index + 4) {
+                        MealCard(
+                            meal = meal,
+                            isEaten = isEaten,
+                            isSwapping = uiState.swappingMealId == meal.id,
+                            onToggleEaten = { viewModel.toggleMealEaten(meal.id) },
+                            onSwap = { viewModel.swapMeal(meal) }
+                        )
+                    }
+                }
+
+                item {
+                    StaggeredEntrance(diet.meals.size + 4) {
+                        SpecialDishCalculator()
+                    }
+                }
+                
+                uiState.foodPreferences?.let { prefs ->
+                    item {
+                        StaggeredEntrance(diet.meals.size + 5) {
+                            FoodPreferencesCard(preferences = prefs)
+                        }
+                    }
+                }
+            } ?: item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🥗", fontSize = 40.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("No tienes plan nutricional", style = MaterialTheme.typography.titleMedium, color = vb.textMuted, textAlign = TextAlign.Center)
+                    }
                 }
             }
-        } ?: item {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(48.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🥗", fontSize = 40.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("No tienes plan nutricional", style = MaterialTheme.typography.titleMedium, color = vb.textMuted, textAlign = TextAlign.Center)
+
+            // ── Hydration tracker ──────────────────────────────────────────
+            item {
+                StaggeredEntrance(10) { // arbitrary higher index to ensure it follows
+                    HydrationCard(
+                        glassCount = uiState.waterGlasses,
+                        onAddGlass = viewModel::addWaterGlass,
+                        onRemoveGlass = viewModel::removeWaterGlass
+                    )
                 }
             }
         }
-
-        // ── Hydration tracker ──────────────────────────────────────────
+    }er ──────────────────────────────────────────
         item {
             HydrationCard(
                 glassCount = uiState.waterGlasses,
@@ -355,7 +389,14 @@ private fun MealCard(
     onSwap: () -> Unit
 ) {
     val vb = LocalVoltBodyColors.current
+    val haptic = rememberHaptic()
     var expanded by remember { mutableStateOf(false) }
+
+    val checkScale by animateFloatAsState(
+        targetValue = if (isEaten) 1.1f else 1f,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 500f),
+        label = "meal_check"
+    )
 
     AppCard(onClick = { expanded = !expanded }) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -363,10 +404,14 @@ private fun MealCard(
             Box(
                 modifier = Modifier
                     .size(44.dp)
+                    .graphicsLayer { scaleX = checkScale; scaleY = checkScale }
                     .clip(CircleShape)
                     .background(if (isEaten) ColorSuccess.copy(0.15f) else vb.surface)
                     .border(1.dp, if (isEaten) ColorSuccess.copy(0.5f) else vb.border, CircleShape)
-                    .clickable { onToggleEaten() },
+                    .clickable { 
+                        haptic.perform(HapticType.TICK)
+                        onToggleEaten() 
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

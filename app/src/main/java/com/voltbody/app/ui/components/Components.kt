@@ -1,6 +1,7 @@
 package com.voltbody.app.ui.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -20,7 +21,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.shadow
 import com.voltbody.app.ui.theme.*
+import com.voltbody.app.util.HapticType
+import com.voltbody.app.util.perform
+import com.voltbody.app.util.rememberHaptic
 
 // ── AppCard — glass morphism card ─────────────────────────────────────────────
 
@@ -31,25 +39,49 @@ fun AppCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val vb = LocalVoltBodyColors.current
+    val haptic = rememberHaptic()
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && onClick != null) 0.97f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "card_scale"
+    )
+
     val cardModifier = modifier
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .shadow(
+            elevation = 16.dp,
+            shape = RoundedCornerShape(20.dp),
+            ambientColor = vb.accent.copy(alpha = 0.15f),
+            spotColor = vb.accent.copy(alpha = 0.05f)
+        )
         .clip(RoundedCornerShape(20.dp))
         .background(
             brush = Brush.verticalGradient(
-                colors = listOf(vb.surfaceElevated, vb.surface)
+                colors = listOf(vb.surfaceElevated.copy(alpha = 0.9f), vb.surface.copy(alpha = 0.8f))
             )
         )
         .border(
             width = 1.dp,
-            color = vb.border,
+            color = vb.border.copy(alpha = 0.5f),
             shape = RoundedCornerShape(20.dp)
         )
 
     if (onClick != null) {
         Surface(
-            onClick = onClick,
+            onClick = {
+                haptic.perform(HapticType.TICK)
+                onClick()
+            },
             modifier = cardModifier,
             color = Color.Transparent,
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(20.dp),
+            interactionSource = interactionSource
         ) {
             Column(modifier = Modifier.padding(16.dp), content = content)
         }
@@ -76,12 +108,25 @@ fun StatPill(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = value,
-            style = MonoMetric.copy(fontSize = 18.sp),
-            color = accentColor,
-            fontWeight = FontWeight.Black
-        )
+        AnimatedContent(
+            targetState = value,
+            transitionSpec = {
+                (slideInVertically { height -> height } + fadeIn()).togetherWith(
+                    slideOutVertically { height -> -height } + fadeOut()
+                )
+            },
+            label = "number_roll"
+        ) { targetValue ->
+            Text(
+                text = targetValue,
+                style = MonoMetric.copy(
+                    fontSize = 18.sp,
+                    shadow = Shadow(color = accentColor.copy(alpha = 0.4f), blurRadius = 12f)
+                ),
+                color = accentColor,
+                fontWeight = FontWeight.Black
+            )
+        }
         Text(
             text = label.uppercase(),
             style = UppercaseLabel,
@@ -312,5 +357,44 @@ fun SimpleLineChart(
         validData.forEach { (i, v) ->
             drawCircle(lineColor, radius = 3.dp.toPx(), center = Offset(xOf(i), yOf(v!!)))
         }
+    }
+}
+
+// ── StaggeredEntrance — premium entrance animation ───────────────────────────
+
+@Composable
+fun StaggeredEntrance(
+    index: Int,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(index * 60L) // Faster stagger
+        visible = true
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
+        label = "staggered_alpha"
+    )
+
+    val offsetY by animateDpAsState(
+        targetValue = if (visible) 0.dp else 24.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "staggered_offset"
+    )
+
+    Box(
+        modifier = Modifier
+            .graphicsLayer {
+                this.alpha = alpha
+                this.translationY = offsetY.toPx()
+            }
+    ) {
+        content()
     }
 }

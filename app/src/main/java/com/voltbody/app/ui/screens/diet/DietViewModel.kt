@@ -42,6 +42,9 @@ class DietViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DietUiState())
     val uiState: StateFlow<DietUiState> = _uiState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
         viewModelScope.launch {
             combine(
@@ -128,4 +131,13 @@ class DietViewModel @Inject constructor(
 
     fun addWaterGlass() { if (_waterGlasses.value < 16) _waterGlasses.value++ }
     fun removeWaterGlass() { if (_waterGlasses.value > 0) _waterGlasses.value-- }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            appViewModel.syncData()
+            kotlinx.coroutines.delay(1000)
+            _isRefreshing.value = false
+        }
+    }
 }

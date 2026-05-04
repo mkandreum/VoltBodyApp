@@ -87,7 +87,14 @@ class HomeViewModel @Inject constructor(
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
+        loadData()
+    }
+
+    private fun loadData() {
         viewModelScope.launch {
             combine(
                 appViewModel.user,
@@ -372,6 +379,15 @@ class HomeViewModel @Inject constructor(
 
     fun setBleConnected(connected: Boolean) {
         _state.update { it.copy(bleConnected = connected) }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            appViewModel.syncData() 
+            delay(1000)
+            _isRefreshing.value = false
+        }
     }
 }
 
