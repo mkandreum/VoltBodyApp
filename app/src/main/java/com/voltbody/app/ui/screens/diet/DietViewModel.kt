@@ -15,9 +15,19 @@ import javax.inject.Inject
 data class DietUiState(
     val diet: DietPlan? = null,
     val eatenMealIds: Set<String> = emptySet(),
+    // --- calories ---
     val eatenCalories: Int = 0,
+    val remainingCalories: Int = 0,
+    // --- macros eaten (from checked meals) ---
+    val eatenProtein: Int = 0,
+    val eatenCarbs: Int = 0,
+    val eatenFat: Int = 0,
+    // --- other ---
     val swappingMealId: String? = null,
-    val waterGlasses: Int = 0
+    val waterGlasses: Int = 0,
+    // --- date navigation ---
+    val selectedDate: LocalDate = LocalDate.now(),
+    val isToday: Boolean = true
 )
 
 @HiltViewModel
@@ -27,6 +37,7 @@ class DietViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _waterGlasses = MutableStateFlow(0)
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
     private val _uiState = MutableStateFlow(DietUiState())
     val uiState: StateFlow<DietUiState> = _uiState.asStateFlow()
 
@@ -35,26 +46,54 @@ class DietViewModel @Inject constructor(
             combine(
                 appViewModel.diet,
                 appViewModel.mealEatenRecord,
-                _waterGlasses
-            ) { diet, mealEatenRecord, water ->
-                val today = LocalDate.now().toString()
-                val eatenIds = mealEatenRecord[today]?.toSet() ?: emptySet()
-                val eatenCalories = diet?.meals
-                    ?.filter { eatenIds.contains(it.id) }
-                    ?.sumOf { it.calories } ?: 0
+                _waterGlasses,
+                _selectedDate
+            ) { diet, mealEatenRecord, water, date ->
+                val dateStr = date.toString()
+                val eatenIds = mealEatenRecord[dateStr]?.toSet() ?: emptySet()
+                val eatenMeals = diet?.meals?.filter { eatenIds.contains(it.id) } ?: emptyList()
+
+                val eatenCalories = eatenMeals.sumOf { it.calories }
+                val eatenProtein = eatenMeals.sumOf { it.protein }
+                val eatenCarbs = eatenMeals.sumOf { it.carbs }
+                val eatenFat = eatenMeals.sumOf { it.fat }
+                val target = diet?.dailyCalories ?: 0
+                val remaining = target - eatenCalories
+
                 DietUiState(
                     diet = diet,
                     eatenMealIds = eatenIds,
                     eatenCalories = eatenCalories,
+                    remainingCalories = remaining,
+                    eatenProtein = eatenProtein,
+                    eatenCarbs = eatenCarbs,
+                    eatenFat = eatenFat,
                     swappingMealId = _uiState.value.swappingMealId,
-                    waterGlasses = water
+                    waterGlasses = water,
+                    selectedDate = date,
+                    isToday = date == LocalDate.now()
                 )
             }.collect { _uiState.value = it }
         }
     }
 
-    fun toggleMealEaten(mealId: String, date: String) {
-        appViewModel.toggleMealEaten(mealId, date)
+    fun toggleMealEaten(mealId: String) {
+        appViewModel.toggleMealEaten(mealId, _selectedDate.value.toString())
+    }
+
+    fun goToPreviousDay() {
+        _selectedDate.value = _selectedDate.value.minusDays(1)
+    }
+
+    fun goToNextDay() {
+        val next = _selectedDate.value.plusDays(1)
+        if (!next.isAfter(LocalDate.now())) {
+            _selectedDate.value = next
+        }
+    }
+
+    fun goToToday() {
+        _selectedDate.value = LocalDate.now()
     }
 
     fun swapMeal(meal: Meal) {
@@ -75,7 +114,7 @@ class DietViewModel @Inject constructor(
                     id = "meal_swapped",
                     type = ToastType.SUCCESS,
                     title = "Comida cambiada",
-                    message = "${meal.name} → ${newMeal.name}"
+                    message = "${meal.name} \u2192 ${newMeal.name}"
                 ))
             }.onFailure {
                 _uiState.value = _uiState.value.copy(swappingMealId = null)
@@ -84,11 +123,6 @@ class DietViewModel @Inject constructor(
         }
     }
 
-    fun addWaterGlass() {
-        if (_waterGlasses.value < 16) _waterGlasses.value++
-    }
-
-    fun removeWaterGlass() {
-        if (_waterGlasses.value > 0) _waterGlasses.value--
-    }
+    fun addWaterGlass() { if (_waterGlasses.value < 16) _waterGlasses.value++ }
+    fun removeWaterGlass() { if (_waterGlasses.value > 0) _waterGlasses.value-- }
 }
