@@ -3,6 +3,7 @@ package com.voltbody.app.ui.screens.login
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -17,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ fun LoginScreen(
     val vb = LocalVoltBodyColors.current
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val haptic = LocalHapticFeedback.current
 
     var isLoginMode by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
@@ -102,42 +106,24 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                // Mode toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(vb.surface),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    listOf(true to "Iniciar sesión", false to "Crear cuenta").forEach { (mode, label) ->
-                        val isSelected = isLoginMode == mode
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .then(
-                                    if (isSelected) Modifier.background(vb.accent.copy(alpha = 0.15f))
-                                    else Modifier
-                                )
-                                .clickable { isLoginMode = mode }
-                                .padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (isSelected) vb.accent else vb.textMuted,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
+
+                // ── Auth mode toggle with animated sliding pill ────────────────────
+                AuthModeToggle(
+                    isLogin = isLoginMode,
+                    onToggle = { mode ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isLoginMode = mode
                     }
-                }
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Name field (register only)
-                AnimatedVisibility(visible = !isLoginMode) {
+                AnimatedVisibility(
+                    visible = !isLoginMode,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
                     Column {
                         VoltTextField(
                             value = name,
@@ -179,10 +165,11 @@ fun LoginScreen(
                     ),
                     keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     trailingIcon = {
+                        // FIX: Added contentDescription for accessibility
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                contentDescription = null,
+                                contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña",
                                 tint = vb.textMuted
                             )
                         }
@@ -190,23 +177,46 @@ fun LoginScreen(
                 )
 
                 // Error message
-                AnimatedVisibility(visible = uiState.error != null) {
+                AnimatedVisibility(
+                    visible = uiState.error != null,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
                     uiState.error?.let { err ->
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = err,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ColorError
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.ErrorOutline,
+                                contentDescription = "Error",
+                                tint = ColorError,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = err,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ColorError
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Submit button
+                // Submit button with press-scale animation
+                val submitInteraction = remember { MutableInteractionSource() }
+                val isSubmitPressed by submitInteraction.collectIsPressedAsState()
+                val submitScale by animateFloatAsState(
+                    targetValue = if (isSubmitPressed) 0.97f else 1f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+                    label = "submit_scale"
+                )
                 Button(
                     onClick = {
                         focusManager.clearFocus()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (isLoginMode) {
                             viewModel.login(LoginRequest(email.trim(), password))
                         } else {
@@ -214,27 +224,47 @@ fun LoginScreen(
                         }
                     },
                     enabled = !uiState.isLoading && email.isNotBlank() && password.isNotBlank(),
+                    interactionSource = submitInteraction,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(52.dp)
+                        .graphicsLayer { scaleX = submitScale; scaleY = submitScale },
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = vb.accent,
-                        contentColor = ColorBlack
+                        contentColor = ColorBlack,
+                        disabledContainerColor = vb.accent.copy(alpha = 0.4f),
+                        disabledContentColor = ColorBlack.copy(alpha = 0.5f)
                     )
                 ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            color = ColorBlack,
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = if (isLoginMode) "Iniciar sesión" else "Crear cuenta",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        )
+                    AnimatedContent(
+                        targetState = uiState.isLoading,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "submit_content"
+                    ) { loading ->
+                        if (loading) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    color = ColorBlack,
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    if (isLoginMode) "Iniciando sesión..." else "Creando cuenta...",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = if (isLoginMode) "Iniciar sesión" else "Crear cuenta",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp
+                            )
+                        }
                     }
                 }
             }
@@ -243,6 +273,71 @@ fun LoginScreen(
         }
     }
 }
+
+// ── Auth mode toggle — animated sliding pill ──────────────────────────────────
+// FIX: Replaced static colored boxes with a spring-animated pill indicator.
+// The pill slides between modes giving a physical, premium segmented-control feel.
+
+@Composable
+private fun AuthModeToggle(
+    isLogin: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    val pillOffset by animateFloatAsState(
+        targetValue = if (isLogin) 0f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
+        label = "auth_pill_offset"
+    )
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(vb.surface)
+            .border(1.dp, vb.border, RoundedCornerShape(14.dp))
+            .padding(4.dp)
+    ) {
+        val pillWidthDp = maxWidth / 2
+
+        // Sliding pill indicator
+        Box(
+            modifier = Modifier
+                .offset(x = pillWidthDp * pillOffset)
+                .width(pillWidthDp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(10.dp))
+                .background(vb.accent.copy(alpha = 0.15f))
+                .border(1.dp, vb.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+        )
+
+        // Labels row — sits above the pill
+        Row(modifier = Modifier.fillMaxSize()) {
+            listOf("Iniciar sesión" to true, "Crear cuenta" to false).forEach { (label, mode) ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onToggle(mode) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isLogin == mode) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isLogin == mode) vb.accent else vb.textMuted
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── VoltTextField ─────────────────────────────────────────────────────────────
 
 @Composable
 fun VoltTextField(

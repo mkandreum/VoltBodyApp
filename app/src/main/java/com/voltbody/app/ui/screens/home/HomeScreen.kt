@@ -3,6 +3,8 @@ package com.voltbody.app.ui.screens.home
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +20,7 @@ import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -70,11 +73,22 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(
-                                "Hola, ${state.userName} ⚡",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    "Hola, ${state.userName}",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    Icons.Default.Bolt,
+                                    contentDescription = null,
+                                    tint = LocalVoltBodyColors.current.accent,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                             Text(
                                 state.greeting,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -277,14 +291,16 @@ fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int, todayXP: Int = 0) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // FIX: replaced emoji "⚡ Nivel X" with vector icon + text
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(
-                        Icons.Default.Star,
-                        contentDescription = "Nivel actual",
-                        tint = vb.accent
+                        Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = vb.accent,
+                        modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        "⚡ Nivel $level",
+                        "Nivel $level",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -365,16 +381,38 @@ fun RecoveryScoreCard(
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         sleepHours?.let {
-                            Text(
-                                "😴 ${"%.1f".format(it)}h",
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Bedtime,
+                                    contentDescription = "Horas de sueño",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "${"%.1f".format(it)}h",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                         hrv?.takeIf { it > 0 }?.let {
-                            Text(
-                                "💓 HRV $it",
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Favorite,
+                                    contentDescription = "HRV",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = ColorError
+                                )
+                                Text(
+                                    "HRV $it",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                 } else {
@@ -452,12 +490,22 @@ fun MotivationCard(phrase: String, photoUrl: String? = null) {
             Column(
                 modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
             ) {
-                Text(
-                    "🧠 MODO MENTAL",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.7f),
-                    letterSpacing = 1.5.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Psychology,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        "MODO MENTAL",
+                        style = UppercaseLabel.copy(letterSpacing = 1.5.sp),
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     phrase.ifEmpty { "Hoy toca. Sin excusas." },
@@ -518,17 +566,29 @@ fun AiCoachCard(onNavigate: () -> Unit) {
 }
 
 // ── Recent achievements ───────────────────────────────────────────────────────
+// FIX: Replaced emoji "🏆" in title with EmojiEvents vector icon
 
 @Composable
 fun RecentAchievementsCard(achievements: List<Achievement>) {
     val vb = LocalVoltBodyColors.current
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
-            Text(
-                "🏆 Logros recientes",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.EmojiEvents,
+                    contentDescription = null,
+                    tint = vb.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    "Logros recientes",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Spacer(Modifier.height(12.dp))
             achievements.take(5).forEach { a ->
                 Row(
@@ -542,7 +602,12 @@ fun RecentAchievementsCard(achievements: List<Achievement>) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(a.icon, style = MaterialTheme.typography.titleLarge)
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = vb.accent,
+                        modifier = Modifier.size(22.dp)
+                    )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             a.label,
@@ -588,10 +653,18 @@ fun RecoveryCheckinDialog(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            "😴 Horas de sueño",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Bedtime,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text("Horas de sueño", style = MaterialTheme.typography.bodyMedium)
+                        }
                         Text(
                             "${"%.1f".format(sleepHours)}h",
                             style = MaterialTheme.typography.bodyMedium,
@@ -603,7 +676,7 @@ fun RecoveryCheckinDialog(
                         value = sleepHours,
                         onValueChange = { sleepHours = it },
                         valueRange = 3f..12f,
-                        steps = 17, // 0.5h increments
+                        steps = 17,
                         colors = SliderDefaults.colors(thumbColor = vb.accent, activeTrackColor = vb.accent)
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -618,7 +691,18 @@ fun RecoveryCheckinDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("💓 Registrar HRV (opcional)", style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = ColorError
+                        )
+                        Text("Registrar HRV (opcional)", style = MaterialTheme.typography.bodyMedium)
+                    }
                     Switch(
                         checked = hasHrv,
                         onCheckedChange = { hasHrv = it },
@@ -711,7 +795,7 @@ fun StreakBadge(days: Int) {
 }
 
 // ── Weekly progress card ──────────────────────────────────────────────────────
-// FIX: Added key(workoutsThisWeek) so animation re-triggers when data changes
+// FIX: key(workoutsThisWeek) so spring re-triggers when weekly data updates
 
 @Composable
 fun WeeklyProgressCard(
@@ -720,8 +804,10 @@ fun WeeklyProgressCard(
     totalVolumeKg: Float,
     dailyVolume: List<Float>
 ) {
-    var appeared by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appeared = true }
+    // FIX: key on workoutsThisWeek so animation fires again when data changes,
+    // not just on initial composition
+    var appeared by remember(workoutsThisWeek) { mutableStateOf(false) }
+    LaunchedEffect(workoutsThisWeek) { appeared = true }
     val scale by animateFloatAsState(
         targetValue = if (appeared) 1f else 0.9f,
         animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
@@ -862,7 +948,6 @@ fun DrawScope.drawVolumeChartBezier(volumes: List<Float>, lineColor: Color, fill
     fun xOf(i: Int) = i * step
     fun yOf(v: Float) = h - (v / maxVol) * h * 0.9f
 
-    // Build smooth bezier path
     val path = Path().apply {
         volumes.forEachIndexed { i, v ->
             val x = xOf(i)
@@ -878,7 +963,6 @@ fun DrawScope.drawVolumeChartBezier(volumes: List<Float>, lineColor: Color, fill
         }
     }
 
-    // Build fill path by extending curve to bottom
     val fillPath = Path().apply {
         addPath(path)
         lineTo(xOf(volumes.lastIndex), h)
@@ -886,7 +970,6 @@ fun DrawScope.drawVolumeChartBezier(volumes: List<Float>, lineColor: Color, fill
         close()
     }
 
-    // Gradient fill under curve
     drawPath(
         fillPath,
         brush = Brush.verticalGradient(
@@ -894,14 +977,12 @@ fun DrawScope.drawVolumeChartBezier(volumes: List<Float>, lineColor: Color, fill
         )
     )
 
-    // Main line
     drawPath(
         path,
         color = lineColor,
         style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
     )
 
-    // Data point dots
     volumes.forEachIndexed { i, v ->
         val x = xOf(i)
         val y = yOf(v)
@@ -911,18 +992,30 @@ fun DrawScope.drawVolumeChartBezier(volumes: List<Float>, lineColor: Color, fill
 }
 
 // ── Fatigue Index card ────────────────────────────────────────────────────────
-// FIX: Bars upgraded from 6dp to 10dp with horizontal gradient for premium look
+// FIX: Bars upgraded from 6dp to 10dp with horizontal gradient + vector icon title
 
 @Composable
 fun FatigueIndexCard(entries: List<FatigueEntry>) {
     val vb = LocalVoltBodyColors.current
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp)) {
-            Text(
-                "⚡ Índice de Fatiga Semanal",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            // FIX: vector icon instead of "⚡" emoji
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Bolt,
+                    contentDescription = null,
+                    tint = vb.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    "Índice de Fatiga Semanal",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 "Volumen vs MRV por grupo muscular",
@@ -967,15 +1060,13 @@ fun FatigueIndexCard(entries: List<FatigueEntry>) {
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    // Track
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(10.dp)  // FIX: upgraded from 6dp to 10dp
+                            .height(10.dp)
                             .clip(RoundedCornerShape(5.dp))
                             .background(Color.White.copy(alpha = 0.08f))
                     ) {
-                        // Gradient fill bar — premium feel
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
@@ -998,6 +1089,7 @@ fun FatigueIndexCard(entries: List<FatigueEntry>) {
 }
 
 // ── Progress Report card (AI) ─────────────────────────────────────────────────
+// FIX: Replaced emoji "🤖" in title with AutoAwesome vector icon
 
 @Composable
 fun ProgressReportCard(
@@ -1009,11 +1101,22 @@ fun ProgressReportCard(
     val vb = LocalVoltBodyColors.current
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp)) {
-            Text(
-                "🤖 Informe IA de progreso",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = vb.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    "Informe IA de progreso",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 "Analiza tus entrenos, rutina, dieta y fotos para ver cómo vas.",
@@ -1141,17 +1244,29 @@ private fun ReportStatBox(label: String, value: String, modifier: Modifier = Mod
 }
 
 // ── Day Timeline card ─────────────────────────────────────────────────────────
+// FIX: Replaced emoji "📅" in title with CalendarToday vector icon
 
 @Composable
 fun DayTimelineCard(items: List<TimelineItem>) {
     val vb = LocalVoltBodyColors.current
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp)) {
-            Text(
-                "📅 Timeline del día",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.CalendarToday,
+                    contentDescription = null,
+                    tint = vb.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    "Timeline del día",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Spacer(Modifier.height(12.dp))
             items.forEachIndexed { index, item ->
                 Row(
@@ -1191,12 +1306,20 @@ fun DayTimelineCard(items: List<TimelineItem>) {
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        if (item.done) "Hecho ✓" else "Pendiente",
+                        if (item.done) "Hecho" else "Pendiente",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = if (item.done) vb.accent
                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
+                    if (item.done) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Completado",
+                            tint = vb.accent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
                 if (index < items.lastIndex) Spacer(Modifier.height(6.dp))
             }
@@ -1205,6 +1328,7 @@ fun DayTimelineCard(items: List<TimelineItem>) {
 }
 
 // ── Quick Actions card ────────────────────────────────────────────────────────
+// FIX: Replaced emoji icon strings with ImageVector icons + press-scale spring
 
 @Composable
 fun QuickActionsCard(
@@ -1215,11 +1339,22 @@ fun QuickActionsCard(
     val haptic = LocalHapticFeedback.current
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp)) {
-            Text(
-                "⚡ Acciones rápidas",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Bolt,
+                    contentDescription = null,
+                    tint = vb.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    "Acciones rápidas",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 "Un toque y listo",
@@ -1232,7 +1367,8 @@ fun QuickActionsCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 QuickActionButton(
-                    icon = "🏋️",
+                    icon = Icons.Default.FitnessCenter,
+                    contentDesc = "Registrar serie rápida",
                     label = "Registrar serie",
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1241,7 +1377,8 @@ fun QuickActionsCard(
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
-                    icon = "🤖",
+                    icon = Icons.Default.Psychology,
+                    contentDesc = "Abrir AI Coach",
                     label = "AI Coach",
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1250,7 +1387,8 @@ fun QuickActionsCard(
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
-                    icon = "📸",
+                    icon = Icons.Default.CameraAlt,
+                    contentDesc = "Subir foto de progreso",
                     label = "Subir foto",
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1262,24 +1400,43 @@ fun QuickActionsCard(
     }
 }
 
+// FIX: ImageVector parameter replaces emoji String; press-scale spring animation added
 @Composable
 private fun QuickActionButton(
-    icon: String,
+    icon: ImageVector,
+    contentDesc: String,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val vb = LocalVoltBodyColors.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
+        label = "quick_action_scale"
+    )
     Column(
         modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(14.dp))
             .background(vb.surface)
             .border(1.dp, vb.border, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(icon, style = MaterialTheme.typography.titleLarge)
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDesc,
+            tint = vb.accent,
+            modifier = Modifier.size(26.dp)
+        )
         Spacer(Modifier.height(6.dp))
         Text(
             label,
