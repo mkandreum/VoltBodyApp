@@ -26,6 +26,7 @@ data class WorkoutUiState(
     val sessionElapsed: Int = 0,
     val restSecondsLeft: Int = 0,
     val logSheetExercise: Exercise? = null,
+    val logSheetHistory: List<ExerciseSession> = emptyList(),
     val lastWeightForExercise: Map<String, Float> = emptyMap(),
     val progressiveSuggestions: Map<String, ProgressiveSuggestion> = emptyMap(),
     val workoutComplete: Boolean = false,
@@ -137,11 +138,18 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun openLogSheet(exercise: Exercise) {
-        _uiState.value = _uiState.value.copy(logSheetExercise = exercise)
+        val history = getExerciseHistory(exercise.id, appViewModel.workoutLogs.value)
+        _uiState.value = _uiState.value.copy(
+            logSheetExercise = exercise,
+            logSheetHistory = history
+        )
     }
 
     fun closeLogSheet() {
-        _uiState.value = _uiState.value.copy(logSheetExercise = null)
+        _uiState.value = _uiState.value.copy(
+            logSheetExercise = null,
+            logSheetHistory = emptyList()
+        )
     }
 
     fun logSet(exercise: Exercise, weight: Float, reps: Int, rir: Int?, sets: Int, duration: Int?, rpe: Int?) {
@@ -184,6 +192,40 @@ class WorkoutViewModel @Inject constructor(
     fun skipRest() {
         restTimerJob?.cancel()
         _uiState.value = _uiState.value.copy(restSecondsLeft = 0)
+    }
+
+    fun moveDayUp(index: Int) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (index > 0 && index < currentRoutine.size) {
+            val temp = currentRoutine[index]
+            currentRoutine[index] = currentRoutine[index - 1]
+            currentRoutine[index - 1] = temp
+            appViewModel.setRoutine(currentRoutine)
+            
+            // Adjust selected index to follow the moved item
+            if (_uiState.value.selectedDayIndex == index) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index - 1)
+            } else if (_uiState.value.selectedDayIndex == index - 1) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index)
+            }
+        }
+    }
+
+    fun moveDayDown(index: Int) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (index >= 0 && index < currentRoutine.size - 1) {
+            val temp = currentRoutine[index]
+            currentRoutine[index] = currentRoutine[index + 1]
+            currentRoutine[index + 1] = temp
+            appViewModel.setRoutine(currentRoutine)
+            
+            // Adjust selected index to follow the moved item
+            if (_uiState.value.selectedDayIndex == index) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index + 1)
+            } else if (_uiState.value.selectedDayIndex == index + 1) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index)
+            }
+        }
     }
 
     override fun onCleared() {

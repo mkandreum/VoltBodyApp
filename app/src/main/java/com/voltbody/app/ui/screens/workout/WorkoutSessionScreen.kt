@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.ui.components.*
+import com.voltbody.app.ui.screens.workout.components.WeightCalculatorDialog
 import com.voltbody.app.util.*
 
 // RPE colour coding — same palette as web
@@ -64,6 +65,8 @@ fun WorkoutSessionScreen(
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
         label = "card_alpha"
     )
+
+    var showWeightCalc by remember { mutableStateOf(false) }
 
     if (state.isFinished) {
         LaunchedEffect(Unit) {
@@ -204,19 +207,39 @@ fun WorkoutSessionScreen(
                             Spacer(Modifier.height(16.dp))
 
                             // ── Weight input ─────────────────────────────────
-                            OutlinedTextField(
-                                value = if (state.selectedWeight == 0f) "" else state.selectedWeight.toString(),
-                                onValueChange = { v ->
-                                    v.toFloatOrNull()?.let { viewModel.setWeight(it) }
-                                },
-                                label = { Text("Peso (kg)") },
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
-                                    imeAction = ImeAction.Next
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = if (state.selectedWeight == 0f) "" else state.selectedWeight.toString(),
+                                    onValueChange = { v ->
+                                        v.toFloatOrNull()?.let { viewModel.setWeight(it) }
+                                    },
+                                    label = { Text("Peso (kg)") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                                        imeAction = ImeAction.Next
+                                    )
                                 )
-                            )
+                                FilledIconButton(
+                                    onClick = {
+                                        haptic.perform(HapticType.TICK)
+                                        showWeightCalc = true
+                                    },
+                                    modifier = Modifier.size(56.dp).padding(top = 8.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Calculate,
+                                        contentDescription = "Calculadora de discos",
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
 
                             Spacer(Modifier.height(20.dp))
 
@@ -328,6 +351,18 @@ fun WorkoutSessionScreen(
                 }
             }
         }
+    }
+
+    if (showWeightCalc) {
+        WeightCalculatorDialog(
+            initialWeight = if (state.selectedWeight > 0f) state.selectedWeight else null,
+            onDismiss = { showWeightCalc = false },
+            onApplyWeight = { w ->
+                viewModel.setWeight(w)
+                showWeightCalc = false
+                haptic.perform(HapticType.TICK)
+            }
+        )
     }
 }
 

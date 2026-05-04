@@ -7,6 +7,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,11 +48,29 @@ fun WorkoutScreen(
         ) {
             // ── Day selector ─────────────────────────────────────────────────
             item {
-                Text(
-                    "Rutina Semanal",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
-                    color = ColorWhite
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Rutina Semanal",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                        color = ColorWhite
+                    )
+                    var showReorder by remember { mutableStateOf(false) }
+                    IconButton(onClick = { showReorder = true }, modifier = Modifier.size(36.dp).clip(CircleShape).background(vb.surface)) {
+                        Icon(Icons.Filled.SwapVert, contentDescription = "Reordenar días", tint = vb.textMuted)
+                    }
+                    if (showReorder) {
+                        ReorderDaysDialog(
+                            routine = uiState.routine,
+                            onDismiss = { showReorder = false },
+                            onMoveUp = viewModel::moveDayUp,
+                            onMoveDown = viewModel::moveDayDown
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(12.dp))
                 WeekDaySelector(
                     selectedDay = uiState.selectedDayIndex,
@@ -141,11 +160,16 @@ fun WorkoutScreen(
                 }
             }
         }
+        
+        if (uiState.workoutComplete) {
+            ConfettiOverlay(modifier = Modifier.fillMaxSize())
+        }
 
         // ── Bottom: log set sheet (as dialog) ─────────────────────────────────
         uiState.logSheetExercise?.let { exercise ->
             LogSetDialog(
                 exercise = exercise,
+                history = uiState.logSheetHistory,
                 lastWeight = uiState.lastWeightForExercise[exercise.id],
                 onDismiss = viewModel::closeLogSheet,
                 onLog = { weight, reps, rir, sets, duration, rpe ->
@@ -203,6 +227,59 @@ private fun WeekDaySelector(
                 )
                 if (isCompleted) {
                     Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = ColorSuccess, modifier = Modifier.size(12.dp).padding(top = 2.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReorderDaysDialog(
+    routine: List<WorkoutDay>,
+    onDismiss: () -> Unit,
+    onMoveUp: (Int) -> Unit,
+    onMoveDown: (Int) -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(vb.surfaceElevated)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Reordenar Días", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) { Icon(Icons.Filled.Close, contentDescription = null, tint = vb.textMuted) }
+            }
+            Text("Ajusta el orden de tu semana. Los cambios se guardarán automáticamente.", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
+            
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(routine) { index, day ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(vb.surface)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(com.voltbody.app.domain.usecase.WEEKDAY_LABELS.getOrNull(index)?.first ?: "Día", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                            Text(day.focus.ifBlank { "Descanso" }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
+                        }
+                        Row {
+                            IconButton(onClick = { onMoveUp(index) }, enabled = index > 0) {
+                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Subir", tint = if (index > 0) vb.accent else vb.border)
+                            }
+                            IconButton(onClick = { onMoveDown(index) }, enabled = index < routine.lastIndex) {
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Bajar", tint = if (index < routine.lastIndex) vb.accent else vb.border)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -317,6 +394,7 @@ private fun RestTimerCard(secondsLeft: Int, total: Int, onSkip: () -> Unit) {
 @Composable
 private fun LogSetDialog(
     exercise: Exercise,
+    history: List<com.voltbody.app.domain.usecase.ExerciseSession>,
     lastWeight: Float?,
     onDismiss: () -> Unit,
     onLog: (weight: Float, reps: Int, rir: Int?, sets: Int, duration: Int?, rpe: Int?) -> Unit
@@ -337,6 +415,7 @@ private fun LogSetDialog(
     var sets by remember { mutableStateOf(1) }
     var duration by remember { mutableStateOf(exercise.durationTarget ?: 30) }
     var rpe by remember { mutableStateOf<Int?>(null) }
+    var showHistory by remember { mutableStateOf(false) }
 
     // Isometric running timer
     var isometricRunning by remember { mutableStateOf(false) }
@@ -460,6 +539,30 @@ private fun LogSetDialog(
                     ExerciseType.CARDIO -> {
                         LabeledNumberStepper(label = "Duración (seg)", value = duration, step = 30, onValueChange = { duration = it })
                         Text(formatDuration(duration), style = MonoMetric.copy(fontSize = 28.sp), color = vb.accent, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+
+                // History toggle
+                if (history.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showHistory = !showHistory }
+                            .padding(vertical = 12.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.History, contentDescription = null, tint = vb.accent, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (showHistory) "Ocultar historial" else "Ver historial", style = MaterialTheme.typography.bodyMedium, color = vb.textMuted)
+                        }
+                        Text("${history.size} sesiones", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                    }
+
+                    AnimatedVisibility(visible = showHistory) {
+                        ExerciseHistoryChart(history = history, modifier = Modifier.padding(bottom = 16.dp))
                     }
                 }
 
