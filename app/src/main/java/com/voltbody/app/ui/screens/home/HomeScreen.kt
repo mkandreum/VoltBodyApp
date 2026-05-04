@@ -1,9 +1,11 @@
 package com.voltbody.app.ui.screens.home
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,10 +18,19 @@ import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import com.voltbody.app.data.remote.dto.ProgressReportResponse
+import com.voltbody.app.domain.model.Achievement
+import com.voltbody.app.domain.usecase.FatigueEntry
+import com.voltbody.app.domain.usecase.FatigueStatus
+import com.voltbody.app.domain.usecase.fatigueStatusLabel
 import com.voltbody.app.ui.components.VoltBodyLoadingIndicator
+import com.voltbody.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +74,8 @@ fun HomeScreen(
             XpLevelCard(
                 level = state.xpLevel,
                 xpCurrent = state.xpCurrent,
-                xpToNext = state.xpToNext
+                xpToNext = state.xpToNext,
+                todayXP = state.todayXP
             )
         }
 
@@ -77,10 +89,13 @@ fun HomeScreen(
             )
         }
 
-        // ── Motivation card ───────────────────────────────────────────────────
-        if (state.motivationPhrase.isNotEmpty()) {
+        // ── Motivation card (enhanced with photo) ─────────────────────────────
+        if (state.motivationPhrase.isNotEmpty() || state.motivationPhotoUrl != null) {
             item {
-                MotivationCard(phrase = state.motivationPhrase)
+                MotivationCard(
+                    phrase = state.motivationPhrase,
+                    photoUrl = state.motivationPhotoUrl
+                )
             }
         }
 
@@ -108,6 +123,34 @@ fun HomeScreen(
             if (state.isLoading) VoltBodyLoadingIndicator()
         }
 
+        // ── Fatigue Index ─────────────────────────────────────────────────────
+        if (state.fatigueEntries.isNotEmpty()) {
+            item { FatigueIndexCard(entries = state.fatigueEntries) }
+        }
+
+        // ── Progress Report (AI) ──────────────────────────────────────────────
+        item {
+            ProgressReportCard(
+                report = state.report,
+                isLoading = state.reportLoading,
+                progress = state.reportProgress,
+                onGenerate = { viewModel.generateProgressReport() }
+            )
+        }
+
+        // ── Day Timeline ──────────────────────────────────────────────────────
+        if (state.timelineItems.isNotEmpty()) {
+            item { DayTimelineCard(items = state.timelineItems) }
+        }
+
+        // ── Quick Actions ─────────────────────────────────────────────────────
+        item {
+            QuickActionsCard(
+                onQuickLog = { viewModel.quickLogSet() },
+                onNavigateToAiCoach = onNavigateToAiCoach
+            )
+        }
+
         // ── Volume chart ──────────────────────────────────────────────────────
         if (state.dailyVolumeKg.isNotEmpty()) {
             item { VolumeChartCard(dailyVolume = state.dailyVolumeKg) }
@@ -116,10 +159,13 @@ fun HomeScreen(
         // ── AI Coach card ─────────────────────────────────────────────────────
         item { AiCoachCard(onNavigate = onNavigateToAiCoach) }
 
-        // ── Recent achievements ───────────────────────────────────────────────
+        // ── Recent achievements (enhanced with labels & descriptions) ─────────
         if (state.recentAchievements.isNotEmpty()) {
             item { RecentAchievementsCard(achievements = state.recentAchievements) }
         }
+
+        // Bottom spacer for nav bar
+        item { Spacer(Modifier.height(80.dp)) }
     }
 
     // ── Recovery check-in dialog ──────────────────────────────────────────────
@@ -134,13 +180,14 @@ fun HomeScreen(
 // ── XP / Level card ───────────────────────────────────────────────────────────
 
 @Composable
-fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int) {
+fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int, todayXP: Int = 0) {
     val progress = if (xpToNext > 0) xpCurrent.toFloat() / xpToNext.toFloat() else 1f
     val animProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
         label = "xp_progress"
     )
+    val vb = LocalVoltBodyColors.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -153,9 +200,9 @@ fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                    Icon(Icons.Default.Star, contentDescription = null, tint = vb.accent)
                     Text(
-                        "Nivel $level",
+                        "⚡ Nivel $level",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -171,15 +218,25 @@ fun XpLevelCard(level: Int, xpCurrent: Int, xpToNext: Int) {
             LinearProgressIndicator(
                 progress = { animProgress },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = MaterialTheme.colorScheme.secondary,
+                color = vb.accent,
                 trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f)
             )
             Spacer(Modifier.height(6.dp))
-            Text(
-                "${xpToNext - xpCurrent} XP para el siguiente nivel",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    "${xpToNext - xpCurrent} XP para el siguiente nivel",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                )
+                if (todayXP > 0) {
+                    Text(
+                        "+$todayXP XP hoy",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = vb.accent
+                    )
+                }
+            }
         }
     }
 }
@@ -246,25 +303,60 @@ fun RecoveryScoreCard(
 // ── Motivation card ───────────────────────────────────────────────────────────
 
 @Composable
-fun MotivationCard(phrase: String) {
+fun MotivationCard(phrase: String, photoUrl: String? = null) {
+    val vb = LocalVoltBodyColors.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Row(
-            Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("💬", style = MaterialTheme.typography.titleLarge)
-            Text(
-                phrase,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.weight(1f)
+        Box(modifier = Modifier.fillMaxWidth().height(170.dp)) {
+            if (photoUrl != null) {
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = "Motivación",
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(vb.accentDim, vb.bg)
+                            )
+                        )
+                )
+            }
+            // Gradient overlay
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f), Color.Black.copy(alpha = 0.85f))
+                        )
+                    )
             )
+            // Text on top
+            Column(
+                modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
+            ) {
+                Text(
+                    "🧠 MODO MENTAL",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                    letterSpacing = 1.5.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    phrase.ifEmpty { "Hoy toca. Sin excusas." },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
         }
     }
 }
@@ -304,26 +396,40 @@ fun AiCoachCard(onNavigate: () -> Unit) {
 
 // ── Recent achievements ───────────────────────────────────────────────────────
 
-data class AchievementPreview(val icon: String, val label: String)
-
 @Composable
-fun RecentAchievementsCard(achievements: List<AchievementPreview>) {
+fun RecentAchievementsCard(achievements: List<Achievement>) {
+    val vb = LocalVoltBodyColors.current
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp)) {
-            Text("Logros recientes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("🏆 Logros recientes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                achievements.take(4).forEach { a ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Text(a.icon, style = MaterialTheme.typography.titleMedium)
-                        Text(a.label, style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
+            achievements.take(5).forEach { a ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(vb.surface)
+                        .border(1.dp, vb.border, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(a.icon, style = MaterialTheme.typography.titleLarge)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            a.label,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = vb.accent
+                        )
+                        Text(
+                            a.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -531,3 +637,352 @@ fun DrawScope.drawVolumeChart(volumes: List<Float>, lineColor: Color, fillColor:
         drawCircle(color = fillColor, radius = 2.dp.toPx(), center = Offset(x, y))
     }
 }
+
+// ── Fatigue Index card ────────────────────────────────────────────────────────
+
+@Composable
+fun FatigueIndexCard(entries: List<FatigueEntry>) {
+    val vb = LocalVoltBodyColors.current
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                "⚡ Índice de Fatiga Semanal",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Volumen vs MRV por grupo muscular",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+            entries.forEach { entry ->
+                val barColor = when (entry.status) {
+                    FatigueStatus.FRESH -> ColorSuccess
+                    FatigueStatus.MODERATE -> ColorWarning
+                    FatigueStatus.HIGH -> ColorOrange
+                    FatigueStatus.OVERREACHED -> ColorError
+                }
+                val animatedProgress by animateFloatAsState(
+                    targetValue = (entry.percent / 100f).coerceIn(0f, 1f),
+                    animationSpec = tween(600, easing = FastOutSlowInEasing),
+                    label = "fatigue_${entry.muscleGroup}"
+                )
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            entry.muscleGroup,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                fatigueStatusLabel(entry.status),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = barColor
+                            )
+                            Text(
+                                "${entry.weeklyVolume}/${entry.mrv}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color.White.copy(alpha = 0.1f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(animatedProgress)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(barColor)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Progress Report card (AI) ─────────────────────────────────────────────────
+
+@Composable
+fun ProgressReportCard(
+    report: ProgressReportResponse?,
+    isLoading: Boolean,
+    progress: Int,
+    onGenerate: () -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                "🤖 Informe IA de progreso",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Analiza tus entrenos, rutina, dieta y fotos para ver cómo vas.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                onClick = onGenerate,
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (isLoading) "Generando informe..." else "Generar informe con IA")
+            }
+
+            // Loading progress bar
+            AnimatedVisibility(visible = isLoading) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Analizando datos con IA…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$progress%", style = MaterialTheme.typography.labelSmall, color = vb.accent)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    val animProgress by animateFloatAsState(
+                        targetValue = progress / 100f,
+                        animationSpec = tween(350, easing = FastOutSlowInEasing),
+                        label = "report_progress"
+                    )
+                    LinearProgressIndicator(
+                        progress = { animProgress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                        color = vb.accent
+                    )
+                }
+            }
+
+            // Report results
+            if (report != null) {
+                Spacer(Modifier.height(16.dp))
+                // Stats grid (2x2)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ReportStatBox("Score total", "${report.overallScore}%", Modifier.weight(1f))
+                    ReportStatBox("Progreso", "${report.progressPercent}%", Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ReportStatBox("Consistencia", "${report.consistencyPercent}%", Modifier.weight(1f))
+                    ReportStatBox("Te falta", "${report.weeksToVisibleChange} sem", Modifier.weight(1f))
+                }
+                // Summary
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    report.summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                // Improvements
+                if (report.improvements.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("Qué puedes mejorar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    report.improvements.forEach { item ->
+                        Text("• $item", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+                // Next actions
+                if (report.nextActions.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("Siguientes pasos", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    report.nextActions.forEach { item ->
+                        Text("• $item", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReportStatBox(label: String, value: String, modifier: Modifier = Modifier) {
+    val vb = LocalVoltBodyColors.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(vb.surface)
+            .border(1.dp, vb.border, RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        Text(
+            label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 1.sp
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            color = Color.White
+        )
+    }
+}
+
+// ── Day Timeline card ─────────────────────────────────────────────────────────
+
+@Composable
+fun DayTimelineCard(items: List<TimelineItem>) {
+    val vb = LocalVoltBodyColors.current
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                "📅 Timeline del día",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(12.dp))
+            items.forEachIndexed { index, item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (item.done) vb.accent.copy(alpha = 0.06f)
+                            else vb.surface
+                        )
+                        .then(
+                            if (item.done) Modifier.border(1.dp, vb.accent.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            else Modifier.border(1.dp, vb.border, RoundedCornerShape(12.dp))
+                        )
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Status dot
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (item.done) vb.accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                    )
+                    // Time
+                    Text(
+                        item.time,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Title
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Status label
+                    Text(
+                        if (item.done) "Hecho ✓" else "Pendiente",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (item.done) vb.accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+                if (index < items.lastIndex) Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+}
+
+// ── Quick Actions card ────────────────────────────────────────────────────────
+
+@Composable
+fun QuickActionsCard(
+    onQuickLog: () -> Unit,
+    onNavigateToAiCoach: () -> Unit
+) {
+    val vb = LocalVoltBodyColors.current
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                "⚡ Acciones rápidas",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text("Un toque y listo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionButton(
+                    icon = "🏋️",
+                    label = "Registrar serie",
+                    onClick = onQuickLog,
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionButton(
+                    icon = "🤖",
+                    label = "AI Coach",
+                    onClick = onNavigateToAiCoach,
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionButton(
+                    icon = "📸",
+                    label = "Subir foto",
+                    onClick = { /* navigate to profile */ },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickActionButton(
+    icon: String,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val vb = LocalVoltBodyColors.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(vb.surface)
+            .border(1.dp, vb.border, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(icon, style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
