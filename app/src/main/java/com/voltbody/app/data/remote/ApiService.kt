@@ -72,6 +72,13 @@ interface ApiService {
         @Body request: EnrichRoutineRequest
     ): Response<EnrichRoutineResponse>
 
+    // Sprint 3 — AI Coach conversational endpoint
+    @POST("api/ai/chat")
+    suspend fun aiChat(
+        @Header("Authorization") token: String,
+        @Body request: AiChatRequest
+    ): Response<AiChatResponse>
+
     // ── Health ────────────────────────────────────────────────────────────────
 
     @GET("api/health")

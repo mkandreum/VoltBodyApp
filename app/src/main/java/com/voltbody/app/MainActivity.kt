@@ -32,16 +32,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var notificationService: VoltBodyNotificationService
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Splash screen must be installed BEFORE super.onCreate so the
-        // splash theme is applied before the window is fully created.
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-
-        // enableEdgeToEdge() must be called AFTER super.onCreate and BEFORE
-        // setContent. On Android 15+ (API 35) edge-to-edge is enforced by the
-        // platform; calling it explicitly ensures correct behaviour on 14 and
-        // below as well, and sets up the WindowInsetsController so our Compose
-        // content can draw behind system bars.
         enableEdgeToEdge()
         enable120fps()
         notificationService.createChannels()
@@ -70,7 +62,7 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
 
     val showBottomNav = isAuthenticated && isOnboarded
 
-    // Sync tab with nav controller
+    // Sync tab → nav controller
     LaunchedEffect(currentTab) {
         if (!showBottomNav) return@LaunchedEffect
         val route = currentTab.toRoute()
@@ -86,20 +78,10 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            // Transparent container so our custom dark background (set in
-            // VoltBodyTheme) shows through without any M3 surface tinting.
             containerColor = androidx.compose.ui.graphics.Color.Transparent,
             contentColor = LocalVoltBodyColors.current.textPrimary,
-            // Scaffold must NOT consume insets itself — we handle them
-            // per-screen so each screen can position content relative to
-            // system bars exactly as needed (e.g. chat input above IME).
             contentWindowInsets = WindowInsets(0)
         ) { innerPadding ->
-            // Pass innerPadding to NavHost so Scaffold-owned padding
-            // (e.g. bottom bar height when it IS inside Scaffold) is
-            // respected. Since our bottom nav is outside Scaffold, the
-            // padding here is effectively zero, but it is correct to
-            // propagate it for future-proofing.
             VoltBodyNavHost(
                 navController = navController,
                 appViewModel = appViewModel,
@@ -109,11 +91,7 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
             )
         }
 
-        // ── Floating bottom nav ───────────────────────────────────────────
-        // Lives outside Scaffold so it truly floats over content and the
-        // screens below it can draw edge-to-edge. Screens are responsible
-        // for adding their own bottom padding to avoid content hiding
-        // behind this bar (use WindowInsets.navigationBars + ~80.dp pill).
+        // Floating pill nav — outside Scaffold so it truly floats
         AnimatedVisibility(
             visible = showBottomNav,
             enter = slideInVertically { it } + fadeIn(),
@@ -133,7 +111,6 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
             )
         }
 
-        // ── Toast overlay ─────────────────────────────────────────────────
         ToastOverlay(
             toasts = toasts,
             onDismiss = appViewModel::dismissToast,
@@ -144,15 +121,16 @@ private fun VoltBodyRoot(appViewModel: AppViewModel) {
     }
 }
 
+// Sprint 3 — AI_COACH added to routing
 private fun AppTab.toRoute() = when (this) {
     AppTab.HOME -> Screen.Home.route
     AppTab.WORKOUT -> Screen.Workout.route
     AppTab.DIET -> Screen.Diet.route
     AppTab.CALENDAR -> Screen.Calendar.route
     AppTab.PROFILE -> Screen.Profile.route
+    AppTab.AI_COACH -> Screen.AiCoach.route
 }
 
-/** Request the highest available refresh rate (up to 120 Hz) for smooth animations. */
 private fun ComponentActivity.enable120fps() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         val displayManager = getSystemService(android.hardware.display.DisplayManager::class.java)

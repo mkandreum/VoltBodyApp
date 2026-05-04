@@ -9,6 +9,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import com.voltbody.app.domain.model.AppTab
+import com.voltbody.app.ui.screens.aicoach.AiCoachScreen
 import com.voltbody.app.ui.screens.calendar.CalendarScreen
 import com.voltbody.app.ui.screens.diet.DietScreen
 import com.voltbody.app.ui.screens.home.HomeScreen
@@ -26,6 +27,8 @@ sealed class Screen(val route: String) {
     object Diet : Screen("diet")
     object Calendar : Screen("calendar")
     object Profile : Screen("profile")
+    // Sprint 3
+    object AiCoach : Screen("ai_coach")
 }
 
 @Composable
@@ -39,7 +42,7 @@ fun VoltBodyNavHost(
     val hasHydrated by appViewModel.hasHydrated.collectAsState()
 
     val startDestination = when {
-        !hasHydrated -> Screen.Home.route  // splash handled in MainActivity
+        !hasHydrated -> Screen.Home.route
         !isAuthenticated -> Screen.Login.route
         !isOnboarded -> Screen.Onboarding.route
         else -> Screen.Home.route
@@ -91,6 +94,7 @@ fun VoltBodyNavHost(
         composable(Screen.Workout.route) { WorkoutScreen() }
         composable(Screen.Diet.route) { DietScreen() }
         composable(Screen.Calendar.route) { CalendarScreen() }
+        composable(Screen.AiCoach.route) { AiCoachScreen() }
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onLogout = {

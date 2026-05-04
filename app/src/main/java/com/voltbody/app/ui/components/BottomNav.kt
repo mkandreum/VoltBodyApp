@@ -17,13 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voltbody.app.domain.model.AppTab
@@ -35,6 +35,10 @@ private data class NavItem(
     val iconSelected: ImageVector,
     val label: String
 )
+
+// Sprint 2 — Expressive spring spec (dampingRatio=0.45, stiffness=380)
+private val NavSpring = spring<Float>(dampingRatio = 0.45f, stiffness = 380f)
+private val NavOffsetSpring = spring<Float>(dampingRatio = 0.55f, stiffness = 420f)
 
 @Composable
 fun VoltBodyBottomNav(
@@ -61,23 +65,22 @@ fun VoltBodyBottomNav(
             .padding(bottom = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Pill container
         Row(
             modifier = Modifier
                 .widthIn(max = 520.dp)
                 .fillMaxWidth()
                 .shadow(
-                    elevation = 24.dp,
+                    elevation = 28.dp,
                     shape = CircleShape,
-                    ambientColor = vb.accent.copy(alpha = 0.15f),
-                    spotColor = vb.accent.copy(alpha = 0.1f)
+                    ambientColor = vb.accent.copy(alpha = 0.18f),
+                    spotColor = vb.accent.copy(alpha = 0.12f)
                 )
                 .clip(CircleShape)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            vb.surfaceElevated.copy(alpha = 0.96f),
-                            vb.surface.copy(alpha = 0.96f)
+                            vb.surfaceElevated.copy(alpha = 0.97f),
+                            vb.surface.copy(alpha = 0.97f)
                         )
                     )
                 )
@@ -85,11 +88,11 @@ fun VoltBodyBottomNav(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left nav items
             leftItems.forEach { item ->
                 NavButton(
                     item = item,
                     isActive = currentTab == item.tab,
+                    accentColor = vb.accent,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onTabSelected(item.tab)
@@ -98,21 +101,22 @@ fun VoltBodyBottomNav(
                 )
             }
 
-            // Center VoltBody button
             CenterVoltButton(
-                isActive = currentTab == AppTab.HOME,
+                isActive = currentTab == AppTab.HOME || currentTab == AppTab.AI_COACH,
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onTabSelected(AppTab.HOME)
+                    // Toggle between HOME and AI_COACH on repeated taps
+                    val next = if (currentTab == AppTab.AI_COACH) AppTab.HOME else AppTab.AI_COACH
+                    onTabSelected(if (currentTab == AppTab.HOME) AppTab.AI_COACH else AppTab.HOME)
                 },
                 modifier = Modifier.weight(1.6f)
             )
 
-            // Right nav items
             rightItems.forEach { item ->
                 NavButton(
                     item = item,
                     isActive = currentTab == item.tab,
+                    accentColor = vb.accent,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onTabSelected(item.tab)
@@ -128,56 +132,66 @@ fun VoltBodyBottomNav(
 private fun NavButton(
     item: NavItem,
     isActive: Boolean,
+    accentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val vb = LocalVoltBodyColors.current
     val interactionSource = remember { MutableInteractionSource() }
 
+    // Sprint 2 — expressive spring physics
     val iconScale by animateFloatAsState(
-        targetValue = if (isActive) 1.1f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
+        targetValue = if (isActive) 1.13f else 1f,
+        animationSpec = NavSpring,
         label = "icon_scale"
+    )
+    val iconOffsetY by animateFloatAsState(
+        targetValue = if (isActive) -2f else 0f,
+        animationSpec = NavOffsetSpring,
+        label = "icon_offset"
+    )
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isActive) 0.12f else 0f,
+        animationSpec = NavSpring,
+        label = "bg_alpha"
     )
 
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .then(
-                if (isActive) Modifier.background(vb.accent.copy(alpha = 0.1f))
-                else Modifier
+            .background(accentColor.copy(alpha = bgAlpha))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
             )
-            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
-            .padding(horizontal = 4.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Icon(
             imageVector = if (isActive) item.iconSelected else item.icon,
             contentDescription = item.label,
-            tint = if (isActive) vb.accent else vb.textMuted,
+            tint = if (isActive) accentColor else ColorTextMuted,
             modifier = Modifier
-                .size(16.dp)
-                .graphicsLayer { scaleX = iconScale; scaleY = iconScale }
+                .size(22.dp)
+                .scale(iconScale)
+                .offset(y = iconOffsetY.dp)
         )
-        AnimatedVisibility(
-            visible = isActive,
-            enter = fadeIn(tween(150)) + expandVertically(tween(150)),
-            exit = fadeOut(tween(100)) + shrinkVertically(tween(100))
-        ) {
-            Text(
-                text = item.label,
-                style = UppercaseLabel.copy(fontSize = 8.sp, letterSpacing = 0.04.sp),
-                color = vb.accent,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-        }
+        // Active dot indicator
+        Box(
+            modifier = Modifier
+                .size(4.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isActive) accentColor
+                    else Color.Transparent
+                )
+        )
     }
 }
 
 @Composable
-private fun CenterVoltButton(
+fun CenterVoltButton(
     isActive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -185,39 +199,60 @@ private fun CenterVoltButton(
     val vb = LocalVoltBodyColors.current
     val interactionSource = remember { MutableInteractionSource() }
 
-    val boltScale by animateFloatAsState(
-        targetValue = if (isActive) 1.2f else 1f,
-        animationSpec = spring(dampingRatio = 0.4f, stiffness = 300f),
-        label = "bolt_scale"
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 1.08f else 1f,
+        animationSpec = NavSpring,
+        label = "center_scale"
+    )
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isActive) 0.30f else 0.15f,
+        animationSpec = NavSpring,
+        label = "glow_alpha"
     )
 
     Box(
         modifier = modifier
+            .height(48.dp)
+            .scale(scale)
+            .shadow(
+                elevation = if (isActive) 16.dp else 8.dp,
+                shape = CircleShape,
+                ambientColor = vb.accent.copy(alpha = glowAlpha),
+                spotColor = vb.accent.copy(alpha = glowAlpha)
+            )
             .clip(CircleShape)
-            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
-            .padding(horizontal = 4.dp, vertical = 10.dp),
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        vb.accent,
+                        vb.accentDim
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                vb.accent.copy(alpha = 0.6f),
+                CircleShape
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Bolt,
-                contentDescription = null,
-                tint = if (isActive) ColorWarning else vb.textMuted,
-                modifier = Modifier
-                    .size(20.dp)
-                    .graphicsLayer { scaleX = boltScale; scaleY = boltScale }
-            )
+        // Show ⚡ for HOME, brain icon for AI_COACH
+        AnimatedContent(
+            targetState = isActive,
+            transitionSpec = {
+                fadeIn(tween(150)) togetherWith fadeOut(tween(150))
+            },
+            label = "center_icon"
+        ) { active ->
             Text(
-                text = "VoltBody",
-                style = UppercaseLabel.copy(
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.06.sp
-                ),
-                color = if (isActive) vb.accent else vb.textMuted.copy(alpha = 0.7f)
+                text = if (active) "🤖" else "⚡",
+                fontSize = 20.sp,
+                color = ColorBlack
             )
         }
     }

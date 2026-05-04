@@ -141,17 +141,17 @@ data class Insights(
 // ── Logs ──────────────────────────────────────────────────────────────────────
 
 data class WorkoutLog(
-    val date: String,         // ISO datetime string
+    val date: String,
     val exerciseId: String,
     val weight: Float,
     val reps: Int,
-    val duration: Int? = null,  // seconds (isometric/cardio)
-    val rpe: Int? = null,       // Rate of Perceived Exertion 1-10
-    val rir: Int? = null        // Reps In Reserve 0-4
+    val duration: Int? = null,
+    val rpe: Int? = null,
+    val rir: Int? = null
 )
 
 data class WeightLog(
-    val date: String,   // YYYY-MM-DD
+    val date: String,
     val weight: Float
 )
 
@@ -163,10 +163,10 @@ data class ProgressPhoto(
 // ── Recovery ──────────────────────────────────────────────────────────────────
 
 data class RecoveryLog(
-    val date: String,         // YYYY-MM-DD
+    val date: String,
     val sleepHours: Float,
-    val hrv: Float? = null,   // morning HRV in ms (RMSSD)
-    val score: Int            // computed 0-100
+    val hrv: Float? = null,
+    val score: Int
 )
 
 // ── Achievements ──────────────────────────────────────────────────────────────
@@ -191,7 +191,8 @@ enum class AppTheme(val key: String) {
     }
 }
 
-enum class AppTab { HOME, WORKOUT, DIET, CALENDAR, PROFILE }
+// AI_COACH added — Sprint 3
+enum class AppTab { HOME, WORKOUT, DIET, CALENDAR, PROFILE, AI_COACH }
 
 data class AppToast(
     val id: String,

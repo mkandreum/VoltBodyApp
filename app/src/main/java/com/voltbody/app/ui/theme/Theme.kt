@@ -1,9 +1,13 @@
 package com.voltbody.app.ui.theme
 
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.voltbody.app.domain.model.AppTheme
 
 // ── Per-theme tokens ──────────────────────────────────────────────────────────
@@ -55,6 +59,16 @@ val LocalVoltBodyColors = staticCompositionLocalOf {
     voltBodyColorsForTheme(AppTheme.VERDE_NEGRO)
 }
 
+// ── M3 Expressive shapes ──────────────────────────────────────────────────────
+// Squircle-biased radii matching M3 Expressive spec
+private val VoltBodyShapes = Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(32.dp)
+)
+
 // ── Material 3 dark color scheme (mapped to VoltBody tokens) ──────────────────
 
 private fun buildColorScheme(c: VoltBodyColors) = darkColorScheme(
@@ -80,6 +94,7 @@ private fun buildColorScheme(c: VoltBodyColors) = darkColorScheme(
 
 // ── Root composable ───────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun VoltBodyTheme(
     appTheme: AppTheme = AppTheme.VERDE_NEGRO,
@@ -89,9 +104,14 @@ fun VoltBodyTheme(
     val colorScheme = remember(appTheme) { buildColorScheme(vbColors) }
 
     CompositionLocalProvider(LocalVoltBodyColors provides vbColors) {
-        MaterialTheme(
+        // MaterialExpressiveTheme enables MotionScheme.Expressive + expressive
+        // component variants (e.g. spring-based transitions, new shapes) while
+        // remaining fully API-compatible with MaterialTheme consumers.
+        MaterialExpressiveTheme(
             colorScheme = colorScheme,
             typography = VoltBodyTypography,
+            shapes = VoltBodyShapes,
+            motionScheme = MotionScheme.expressive(),
             content = content
         )
     }
@@ -99,5 +119,5 @@ fun VoltBodyTheme(
 
 // ── Convenience extension ─────────────────────────────────────────────────────
 
-val MaterialTheme.vbColors: VoltBodyColors
+val androidx.compose.material3.MaterialTheme.vbColors: VoltBodyColors
     @Composable get() = LocalVoltBodyColors.current
