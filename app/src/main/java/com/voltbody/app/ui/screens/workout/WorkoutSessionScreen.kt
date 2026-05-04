@@ -16,11 +16,26 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.util.*
+
+// RPE colour coding — same palette as web
+private fun rpeColor(rpe: Int): Color = when (rpe) {
+    in 1..4 -> Color(0xFF4ADE80)  // green  — easy
+    in 5..6 -> Color(0xFFFBBF24)  // amber  — moderate
+    in 7..8 -> Color(0xFFF97316)  // orange — hard
+    else    -> Color(0xFFEF4444)  // red    — max effort
+}
+
+private val rpeLabels = mapOf(
+    1 to "Muy fácil", 2 to "Fácil", 3 to "Ligero", 4 to "Moderado",
+    5 to "Algo duro", 6 to "Duro", 7 to "Muy duro", 8 to "Muy muy duro",
+    9 to "Casi máximo", 10 to "Máximo esfuerzo"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +48,6 @@ fun WorkoutSessionScreen(
 
     val exercise = state.exercises.getOrNull(state.currentExerciseIndex)
 
-    // Spring card entrance
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(state.currentExerciseIndex) {
         visible = false
@@ -63,7 +77,6 @@ fun WorkoutSessionScreen(
             TopAppBar(
                 title = { Text(state.workoutName, fontWeight = FontWeight.SemiBold) },
                 actions = {
-                    // Elapsed timer badge
                     val elapsed = state.elapsedSeconds
                     val h = elapsed / 3600
                     val m = (elapsed % 3600) / 60
@@ -151,7 +164,6 @@ fun WorkoutSessionScreen(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                 }
-                                // Set progress bubble
                                 Box(
                                     modifier = Modifier
                                         .size(52.dp)
@@ -170,7 +182,7 @@ fun WorkoutSessionScreen(
 
                             Spacer(Modifier.height(20.dp))
 
-                            // Reps ButtonGroup
+                            // ── Reps picker ──────────────────────────────────
                             Text(
                                 "Repeticiones",
                                 style = MaterialTheme.typography.labelLarge,
@@ -191,7 +203,7 @@ fun WorkoutSessionScreen(
 
                             Spacer(Modifier.height(16.dp))
 
-                            // Weight input
+                            // ── Weight input ─────────────────────────────────
                             OutlinedTextField(
                                 value = if (state.selectedWeight == 0f) "" else state.selectedWeight.toString(),
                                 onValueChange = { v ->
@@ -201,12 +213,90 @@ fun WorkoutSessionScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                                    imeAction = ImeAction.Next
                                 )
                             )
 
                             Spacer(Modifier.height(20.dp))
 
+                            // ── RPE selector (1–10) ───────────────────────────
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "RPE — Esfuerzo percibido",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                )
+                                state.selectedRpe?.let { rpe ->
+                                    Text(
+                                        rpeLabels[rpe] ?: "",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = rpeColor(rpe)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                (1..10).forEach { v ->
+                                    val isSelected = state.selectedRpe == v
+                                    val color = rpeColor(v)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isSelected) color.copy(alpha = 0.25f)
+                                                else MaterialTheme.colorScheme.surface
+                                            )
+                                            .border(
+                                                width = if (isSelected) 2.dp else 1.dp,
+                                                color = if (isSelected) color else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                                shape = CircleShape
+                                            )
+                                            .clickable {
+                                                haptic.perform(HapticType.TICK)
+                                                viewModel.setRpe(if (isSelected) null else v)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "$v",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) color
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            // ── Note field (optional) ─────────────────────────
+                            OutlinedTextField(
+                                value = state.currentNote,
+                                onValueChange = viewModel::setNote,
+                                label = { Text("Nota (opcional)") },
+                                placeholder = { Text("ej. buena forma, dolor lumbar leve…", style = MaterialTheme.typography.bodySmall) },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 2,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    imeAction = ImeAction.Done
+                                )
+                            )
+
+                            Spacer(Modifier.height(20.dp))
+
+                            // ── Log set button ────────────────────────────────
                             Button(
                                 onClick = {
                                     haptic.perform(HapticType.CONFIRM)
@@ -291,7 +381,7 @@ fun SetHistoryRow(log: SetLog) {
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
         label = "row_alpha"
     )
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .offset(y = offsetY)
@@ -299,14 +389,53 @@ fun SetHistoryRow(log: SetLog) {
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(log.exerciseName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        Text(
-            "Serie ${log.setNumber}  ·  ${log.reps} reps  ·  ${log.weightKg}kg",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                log.exerciseName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Serie ${log.setNumber}  ·  ${log.reps} reps  ·  ${log.weightKg}kg",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // RPE badge
+                log.rpe?.let { rpe ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(rpeColor(rpe).copy(alpha = 0.15f))
+                            .border(1.dp, rpeColor(rpe).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "RPE $rpe",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = rpeColor(rpe)
+                        )
+                    }
+                }
+            }
+        }
+        // Note — shown only if present
+        log.note?.let { note ->
+            Text(
+                "📝 $note",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+            )
+        }
     }
 }
