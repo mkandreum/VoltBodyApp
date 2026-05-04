@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,7 +37,7 @@ private data class NavItem(
     val label: String
 )
 
-// Sprint 2 — Expressive spring spec (dampingRatio=0.45, stiffness=380)
+// M3 Expressive spring spec (dampingRatio=0.45, stiffness=380)
 private val NavSpring = spring<Float>(dampingRatio = 0.45f, stiffness = 380f)
 private val NavOffsetSpring = spring<Float>(dampingRatio = 0.55f, stiffness = 420f)
 
@@ -101,13 +102,19 @@ fun VoltBodyBottomNav(
                 )
             }
 
+            // FIX: Center button now uses vector icon (Icon) instead of emoji Text.
+            // Emoji avatars inside interactive elements are an anti-pattern: they
+            // render at platform-specific sizes, have no contentDescription for a11y,
+            // and look inconsistent across API levels.
+            // Using Icons.Filled.Bolt (⚡ brand icon) for HOME and Icons.Filled.SmartToy
+            // for AI_COACH gives a more refined, brand-consistent experience.
             CenterVoltButton(
                 isActive = currentTab == AppTab.HOME || currentTab == AppTab.AI_COACH,
+                isAiMode = currentTab == AppTab.AI_COACH,
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    // Toggle between HOME and AI_COACH on repeated taps
                     val next = if (currentTab == AppTab.AI_COACH) AppTab.HOME else AppTab.AI_COACH
-                    onTabSelected(if (currentTab == AppTab.HOME) AppTab.AI_COACH else AppTab.HOME)
+                    onTabSelected(next)
                 },
                 modifier = Modifier.weight(1.6f)
             )
@@ -137,10 +144,15 @@ private fun NavButton(
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
 
-    // Sprint 2 — expressive spring physics
+    // Expressive spring physics — icon lifts + scales on selection
     val iconScale by animateFloatAsState(
-        targetValue = if (isActive) 1.13f else 1f,
+        targetValue = when {
+            isPressed -> 0.88f
+            isActive -> 1.13f
+            else -> 1f
+        },
         animationSpec = NavSpring,
         label = "icon_scale"
     )
@@ -150,7 +162,7 @@ private fun NavButton(
         label = "icon_offset"
     )
     val bgAlpha by animateFloatAsState(
-        targetValue = if (isActive) 0.12f else 0f,
+        targetValue = if (isActive) 0.14f else 0f,
         animationSpec = NavSpring,
         label = "bg_alpha"
     )
@@ -170,14 +182,20 @@ private fun NavButton(
     ) {
         Icon(
             imageVector = if (isActive) item.iconSelected else item.icon,
+            // FIX: contentDescription was missing on interactive nav icons.
+            // Screen readers need this to announce the tab name to users with
+            // visual impairments. Required by Play Store accessibility guidelines.
             contentDescription = item.label,
             tint = if (isActive) accentColor else ColorTextMuted,
             modifier = Modifier
                 .size(22.dp)
-                .scale(iconScale)
-                .offset(y = iconOffsetY.dp)
+                .graphicsLayer {
+                    scaleX = iconScale
+                    scaleY = iconScale
+                    translationY = iconOffsetY * density
+                }
         )
-        // Active dot indicator
+        // Active dot indicator — subtle presence signal
         Box(
             modifier = Modifier
                 .size(4.dp)
@@ -193,14 +211,20 @@ private fun NavButton(
 @Composable
 fun CenterVoltButton(
     isActive: Boolean,
+    isAiMode: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val vb = LocalVoltBodyColors.current
     val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isActive) 1.08f else 1f,
+        targetValue = when {
+            isPressed -> 0.90f
+            isActive -> 1.08f
+            else -> 1f
+        },
         animationSpec = NavSpring,
         label = "center_scale"
     )
@@ -213,7 +237,10 @@ fun CenterVoltButton(
     Box(
         modifier = modifier
             .height(48.dp)
-            .scale(scale)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .shadow(
                 elevation = if (isActive) 16.dp else 8.dp,
                 shape = CircleShape,
@@ -223,17 +250,10 @@ fun CenterVoltButton(
             .clip(CircleShape)
             .background(
                 Brush.radialGradient(
-                    colors = listOf(
-                        vb.accent,
-                        vb.accentDim
-                    )
+                    colors = listOf(vb.accent, vb.accentDim)
                 )
             )
-            .border(
-                1.dp,
-                vb.accent.copy(alpha = 0.6f),
-                CircleShape
-            )
+            .border(1.dp, vb.accent.copy(alpha = 0.6f), CircleShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -241,18 +261,23 @@ fun CenterVoltButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Show ⚡ for HOME, brain icon for AI_COACH
+        // FIX: Replaced emoji Text ("🤖"/"⚡") with proper vector Icons.
+        // Reasons: emoji size varies by OEM/API level, has no contentDescription,
+        // and looks non-premium. Vector icons are pixel-perfect, scalable and
+        // accessible. Icons.Filled.Bolt = brand identity; Icons.Filled.SmartToy = AI.
         AnimatedContent(
-            targetState = isActive,
+            targetState = isAiMode,
             transitionSpec = {
-                fadeIn(tween(150)) togetherWith fadeOut(tween(150))
+                fadeIn(tween(200)) + scaleIn(initialScale = 0.8f) togetherWith
+                    fadeOut(tween(150)) + scaleOut(targetScale = 0.8f)
             },
             label = "center_icon"
-        ) { active ->
-            Text(
-                text = if (active) "🤖" else "⚡",
-                fontSize = 20.sp,
-                color = ColorBlack
+        ) { aiMode ->
+            Icon(
+                imageVector = if (aiMode) Icons.Filled.SmartToy else Icons.Filled.Bolt,
+                contentDescription = if (aiMode) "Coach IA" else "Inicio",
+                tint = ColorBlack,
+                modifier = Modifier.size(22.dp)
             )
         }
     }

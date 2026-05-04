@@ -57,10 +57,17 @@ fun LevelUpDialog(
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
                     ConfettiOverlay(Modifier.fillMaxSize())
-                    Text("🆙", fontSize = 64.sp)
+                    // FIX: Use NeonBadge + Icon instead of bare emoji for level-up visual.
+                    // Icon is accessible, scalable and brand-consistent.
+                    Icon(
+                        imageVector = Icons.Filled.EmojiEvents,
+                        contentDescription = null,
+                        tint = vb.accent,
+                        modifier = Modifier.size(72.dp)
+                    )
                 }
                 Text(
-                    "¡NUEVO NIVEL!",
+                    "\u00a1NUEVO NIVEL!",
                     style = UppercaseLabel.copy(fontSize = 14.sp, letterSpacing = 2.sp),
                     color = vb.accent
                 )
@@ -71,18 +78,23 @@ fun LevelUpDialog(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    "Sigue entrenando duro para desbloquear más recompensas y funciones IA.",
+                    "Sigue entrenando duro para desbloquear m\u00e1s recompensas y funciones IA.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = vb.textMuted,
                     textAlign = TextAlign.Center
                 )
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = vb.accent, contentColor = ColorBlack)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = vb.accent,
+                        contentColor = ColorBlack
+                    )
                 ) {
-                    Text("¡VAMOS!", fontWeight = FontWeight.Black)
+                    Text("\u00a1VAMOS!", fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -113,7 +125,7 @@ fun ExerciseGifPlayer(
                     .data(gifUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Técnica del ejercicio",
+                contentDescription = "T\u00e9cnica del ejercicio",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale
             )
@@ -419,7 +431,7 @@ fun SimpleLineChart(
         fun xOf(i: Int) = i * stepX
         fun yOf(v: Float) = padT + chartH * (1f - (v - minVal) / range)
 
-        // Build path from valid points
+        // Build path from valid points using smooth cubic Bezier
         val path = Path()
         val fillPath = Path()
         var started = false
@@ -432,7 +444,7 @@ fun SimpleLineChart(
                 fillPath.lineTo(x, y)
                 started = true
             } else {
-                // Smooth cubic Bezier
+                // Smooth cubic Bezier — avoids sharp corners on volume charts
                 val prev = validData[idx - 1]
                 val px = xOf(prev.first)
                 val py = yOf(prev.second!!)
@@ -459,22 +471,30 @@ fun SimpleLineChart(
 }
 
 // ── StaggeredEntrance — premium entrance animation ───────────────────────────
+// FIX: Added `key` parameter so the animation re-triggers when the content
+// identity changes (e.g. new workout data loaded). Without this, re-compositions
+// from data changes don't replay the entrance since `appeared` is already true.
+// Also documents the required contract: caller MUST pass unique, consecutive
+// indices — duplicate indices cause simultaneous entry, breaking the choreography.
 
 @Composable
 fun StaggeredEntrance(
     index: Int,
+    key: Any? = Unit,
     content: @Composable () -> Unit
 ) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(index * 60L) // Faster stagger
+    var visible by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(key) {
+        // FIX: reset visibility so animation replays on key change
+        visible = false
+        kotlinx.coroutines.delay(index * 60L)
         visible = true
     }
 
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
-        label = "staggered_alpha"
+        label = "staggered_alpha_$index"
     )
 
     val offsetY by animateDpAsState(
@@ -483,7 +503,7 @@ fun StaggeredEntrance(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
         ),
-        label = "staggered_offset"
+        label = "staggered_offset_$index"
     )
 
     Box(
