@@ -4,12 +4,12 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,18 +17,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.voltbody.app.domain.model.*
+import com.voltbody.app.domain.model.WorkoutDay
+import com.voltbody.app.domain.model.WorkoutLog
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
-import dev.chrisbanes.haze.HazeState
+import com.voltbody.app.util.HapticType
+import com.voltbody.app.util.rememberHaptic
 import java.time.LocalDate
-import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 @Composable
 fun CalendarScreen(
@@ -36,312 +36,241 @@ fun CalendarScreen(
 ) {
     val vb = LocalVoltBodyColors.current
     val uiState by viewModel.uiState.collectAsState()
+    val haptic = rememberHaptic()
+
+    val selectedDate = uiState.selectedDay ?: LocalDate.now()
+    val weekDates = remember(uiState.displayMonth, selectedDate) {
+        val startOfWeek = selectedDate.with(java.time.DayOfWeek.MONDAY)
+        (0..6).map { startOfWeek.plusDays(it.toLong()) }
+    }
 
     LiquidGlassScaffold(
         background = {
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.size(400.dp).align(Alignment.TopEnd).background(vb.accent.copy(0.1f), CircleShape).offset(80.dp, (-80).dp))
-                Box(modifier = Modifier.size(300.dp).align(Alignment.BottomStart).background(ColorInfo.copy(0.08f), CircleShape).offset((-80).dp, 80.dp))
+                Box(
+                    modifier = Modifier
+                        .size(300.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 50.dp, y = 50.dp)
+                        .background(vb.accent.copy(alpha = 0.05f), CircleShape)
+                )
             }
         }
     ) { hazeState ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 70.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // 1. Header (Matching Web)
             item {
-                StaggeredEntrance(0) {
-                    CalendarHeader(
-                        month = uiState.displayMonth,
-                        onPrev = viewModel::prevMonth,
-                        onNext = viewModel::nextMonth
-                    )
-                }
-            }
-
-            item {
-                StaggeredEntrance(1) {
-                    WeeklyStatsRow(
-                        workouts = uiState.weekWorkouts,
-                        sets = uiState.weekSets,
-                        streak = uiState.weekStreak
-                    )
-                }
-            }
-
-            item {
-                StaggeredEntrance(2) {
-                    CalendarGrid(
-                        displayMonth = uiState.displayMonth,
-                        selectedDay = uiState.selectedDay,
-                        workoutDays = uiState.workoutDaysInMonth,
-                        completedDays = uiState.completedDaysInMonth,
-                        onDaySelected = { day ->
-                            if (uiState.isRescheduling && uiState.selectedDay != null && uiState.selectedDayWorkout != null) {
-                                viewModel.moveWorkout(uiState.selectedDay!!, day)
-                            } else {
-                                viewModel.selectDay(day)
-                            }
-                        },
-                        hazeState = hazeState
-                    )
-                }
-            }
-
-            item {
-                StaggeredEntrance(3) {
-                    DayDetailCard(
-                        selectedDay = uiState.selectedDay ?: LocalDate.now(),
-                        workout = uiState.selectedDayWorkout,
-                        progress = uiState.dayProgress,
-                        isRescheduling = uiState.isRescheduling,
-                        onToggleReschedule = viewModel::toggleRescheduling,
-                        hazeState = hazeState
-                    )
-                }
-            }
-
-            if (uiState.selectedDayWorkout != null) {
-                itemsIndexed(uiState.selectedDayWorkout!!.exercises) { index, exercise ->
-                    StaggeredEntrance(index + 4) {
-                        ExerciseSmallItem(exercise = exercise, hazeState = hazeState)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Default.CalendarMonth, null, tint = vb.accent, modifier = Modifier.size(32.dp))
+                    Column {
+                        Text("📅 CALENDARIO", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                        Text("PLANIFICACIÓN Y REGISTRO", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontMono = true), color = vb.textMuted)
                     }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(100.dp)) }
-        }
-    }
-}
+            // 2. Weekly Selector Card
+            item {
+                StaggeredEntrance(1) {
+                    LiquidGlassCard(hazeState = hazeState) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { viewModel.prevMonth() }) {
+                                Icon(Icons.Default.ChevronLeft, null, tint = vb.textMuted)
+                            }
+                            Text(
+                                uiState.displayMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("es"))).uppercase(),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
+                                color = ColorWhite
+                            )
+                            IconButton(onClick = { viewModel.nextMonth() }) {
+                                Icon(Icons.Default.ChevronRight, null, tint = vb.textMuted)
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val days = listOf("L", "M", "X", "J", "V", "S", "D")
+                            weekDates.forEachIndexed { index, date ->
+                                val isSelected = date == selectedDate
+                                val isToday = date == LocalDate.now()
+                                val hasLogs = uiState.completedDaysInMonth.contains(date)
 
-@Composable
-private fun CalendarHeader(
-    month: YearMonth,
-    onPrev: () -> Unit,
-    onNext: () -> Unit
-) {
-    val vb = LocalVoltBodyColors.current
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = vb.accent, modifier = Modifier.size(32.dp))
-                HeadlineGradient("🗓️ CALENDARIO", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black))
-            }
-            Text(
-                month.month.getDisplayName(TextStyle.FULL, Locale("es")).uppercase() + " " + month.year,
-                style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoMetric.fontFamily),
-                color = vb.textMuted,
-                modifier = Modifier.padding(start = 44.dp)
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconButton(onClick = onPrev, modifier = Modifier.size(36.dp).neuroRaised(cornerRadius = 18.dp)) {
-                Icon(Icons.Default.ChevronLeft, null, tint = ColorWhite, modifier = Modifier.size(20.dp))
-            }
-            IconButton(onClick = onNext, modifier = Modifier.size(36.dp).neuroRaised(cornerRadius = 18.dp)) {
-                Icon(Icons.Default.ChevronRight, null, tint = ColorWhite, modifier = Modifier.size(20.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeeklyStatsRow(workouts: Int, sets: Int, streak: Int) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatPillFlat("SESIONES", "$workouts", Icons.Default.FitnessCenter, modifier = Modifier.weight(1f))
-        StatPillFlat("SERIES", "$sets", Icons.Default.StackedLineChart, modifier = Modifier.weight(1f))
-        StatPillFlat("RACHA", "$streak", Icons.Default.Whatshot, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun StatPillFlat(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
-    val vb = LocalVoltBodyColors.current
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(vb.surfaceElevated.copy(0.3f))
-            .padding(12.dp)
-    ) {
-        Column {
-            Icon(icon, null, tint = vb.accent, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-            Text(label, style = UppercaseLabel.copy(fontSize = 7.sp), color = vb.textMuted)
-        }
-    }
-}
-
-@Composable
-private fun CalendarGrid(
-    displayMonth: YearMonth,
-    selectedDay: LocalDate?,
-    workoutDays: Set<LocalDate>,
-    completedDays: Set<LocalDate>,
-    onDaySelected: (LocalDate) -> Unit,
-    hazeState: dev.chrisbanes.haze.HazeState? = null
-) {
-    val vb = LocalVoltBodyColors.current
-    val daysOfWeek = listOf("L", "M", "X", "J", "V", "S", "D")
-    val firstDayOfMonth = displayMonth.atDay(1)
-    val dayOfWeekOffset = (firstDayOfMonth.dayOfWeek.value - 1)
-    val daysInMonth = displayMonth.lengthOfMonth()
-
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Column {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                daysOfWeek.forEach { day ->
-                    Text(
-                        day,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                        color = vb.textMuted
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            var currentDay = 1
-            for (week in 0..5) {
-                if (currentDay > daysInMonth) break
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    for (dayInWeek in 0..6) {
-                        val isOffset = (week == 0 && dayInWeek < dayOfWeekOffset) || currentDay > daysInMonth
-                        if (isOffset) {
-                            Box(modifier = Modifier.weight(1f).aspectRatio(1f))
-                        } else {
-                            val date = displayMonth.atDay(currentDay)
-                            val isSelected = date == selectedDay
-                            val isWorkout = workoutDays.contains(date)
-                            val isCompleted = completedDays.contains(date)
-                            val isToday = date == LocalDate.now()
-                            
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .padding(2.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) vb.accent.copy(0.2f) else Color.Transparent)
-                                    .border(1.dp, if (isSelected) vb.accent else if (isToday) vb.accent.copy(0.3f) else Color.Transparent, CircleShape)
-                                    .clickable { onDaySelected(date) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        "$currentDay",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal),
-                                        color = if (isSelected || isToday) ColorWhite else vb.textMuted
-                                    )
-                                    if (isWorkout) {
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(top = 2.dp)
-                                                .size(4.dp)
-                                                .clip(CircleShape)
-                                                .background(if (isCompleted) vb.accent else vb.textMuted.copy(0.4f))
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(0.8f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) vb.accent.copy(0.2f) else vb.surfaceElevated.copy(0.3f))
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (isSelected) vb.accent else if (isToday) vb.textMuted else vb.border.copy(0.3f),
+                                            shape = RoundedCornerShape(12.dp)
                                         )
+                                        .clickable { haptic.perform(HapticType.TICK); viewModel.selectDay(date) },
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(days[index], style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = vb.textMuted)
+                                    Text(
+                                        date.dayOfMonth.toString(),
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
+                                        color = if (isSelected) vb.accent else ColorWhite
+                                    )
+                                    if (hasLogs) {
+                                        Box(modifier = Modifier.size(4.dp).background(vb.accent, CircleShape))
                                     }
                                 }
                             }
-                            currentDay++
                         }
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun DayDetailCard(
-    selectedDay: LocalDate,
-    workout: WorkoutDay?,
-    progress: Float,
-    isRescheduling: Boolean,
-    onToggleReschedule: () -> Unit,
-    hazeState: dev.chrisbanes.haze.HazeState? = null
-) {
-    val vb = LocalVoltBodyColors.current
-    val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es"))
-    
-    LiquidGlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        accentGlow = isRescheduling,
-        hazeState = hazeState
-    ) {
-        Column {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(selectedDay.format(formatter).uppercase(), style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.accent)
-                    Text(
-                        workout?.focus ?: "DÍA DE DESCANSO",
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                        color = ColorWhite
-                    )
-                }
-                if (workout != null) {
-                    IconButton(
-                        onClick = onToggleReschedule,
-                        modifier = Modifier.size(44.dp).neuroRaised(cornerRadius = 22.dp)
-                    ) {
-                        Icon(
-                            if (isRescheduling) Icons.Default.Close else Icons.Default.EventRepeat,
-                            null,
-                            tint = if (isRescheduling) ColorError else vb.accent
+            // 3. Selected Day Title
+            item {
+                StaggeredEntrance(2) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            selectedDate.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("es"))).uppercase(),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                            color = ColorWhite
                         )
+                        if (selectedDate == LocalDate.now()) {
+                            Text(
+                                "HOY",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontMono = true),
+                                color = vb.accent,
+                                modifier = Modifier.background(vb.accent.copy(0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
-            
-            if (workout != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    LiquidProgressBar(progress = progress, modifier = Modifier.weight(1f), height = 6.dp)
-                    Text("${(progress * 100).toInt()}%", style = MonoMetric.copy(fontSize = 12.sp, fontWeight = FontWeight.Black), color = vb.accent)
-                }
-                if (isRescheduling) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(vb.accent.copy(0.1f)).padding(12.dp)) {
-                        Text("📍 Selecciona un nuevo día en el calendario para mover esta sesión.", style = MaterialTheme.typography.labelSmall, color = vb.accent)
+
+            // 4. Planned Routine Card
+            item {
+                StaggeredEntrance(3) {
+                    val routine = uiState.selectedDayWorkout
+                    if (routine != null) {
+                        PlannedRoutineCard(routine = routine, progress = (uiState.dayProgress * 100).toInt(), hazeState = hazeState)
+                    } else {
+                        LiquidGlassCard(hazeState = hazeState) {
+                            Text("🏋️ RUTINA PLANIFICADA", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Este día no tienes entrenamiento programado.", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                        }
                     }
                 }
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("No hay sesiones programadas para este día.", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
             }
+
+            // 5. Training Logs Section
+            item {
+                StaggeredEntrance(4) {
+                    LiquidGlassCard(hazeState = hazeState) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.CheckCircle, null, tint = vb.accent, modifier = Modifier.size(16.dp))
+                            Text("✅ REGISTRO DE ENTRENAMIENTO", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        val logs = uiState.selectedDayLogs
+                        if (logs.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                logs.forEach { log ->
+                                    TrainingLogItem(log)
+                                }
+                            }
+                        } else {
+                            Text("No hay registros para este día.", style = MaterialTheme.typography.labelSmall, color = vb.textMuted, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+
+            // 6. Diet Summary Card
+            item {
+                StaggeredEntrance(5) {
+                    uiState.diet?.let { diet ->
+                        LiquidGlassCard(hazeState = hazeState) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.LocalFireDepartment, null, tint = vb.accent, modifier = Modifier.size(16.dp))
+                                Text("🔥 OBJETIVO NUTRICIONAL", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "${diet.dailyCalories} KCAL",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
+                                    color = ColorWhite
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    MacroPill("P: ${diet.macros.protein}G")
+                                    MacroPill("C: ${diet.macros.carbs}G")
+                                    MacroPill("G: ${diet.macros.fat}G")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(100.dp)) }
         }
     }
 }
 
 @Composable
-private fun ExerciseSmallItem(exercise: Exercise, hazeState: dev.chrisbanes.haze.HazeState? = null) {
+private fun PlannedRoutineCard(routine: WorkoutDay, progress: Int, hazeState: dev.chrisbanes.haze.HazeState? = null) {
     val vb = LocalVoltBodyColors.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(vb.surfaceElevated.copy(0.3f))
-            .padding(16.dp)
-    ) {
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Text("🏋️ RUTINA PLANIFICADA", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+        Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(vb.surfaceElevated.copy(0.5f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.FitnessCenter, null, tint = vb.accent, modifier = Modifier.size(20.dp))
+            Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.Black).border(1.dp, vb.accent.copy(0.3f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.FitnessCenter, null, tint = vb.accent, modifier = Modifier.size(24.dp))
             }
             Column {
-                Text(exercise.name.uppercase(), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                Text("${exercise.sets} series × ${exercise.reps}", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                Text(routine.focus.uppercase(), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                Text("${routine.exercises.size} EJERCICIOS", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
             }
         }
+        Spacer(Modifier.height(20.dp))
+        Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("PROGRESO POR SERIES", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = vb.textMuted)
+                Text("$progress%", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Black), color = vb.accent)
+            }
+            Spacer(Modifier.height(8.dp))
+            LiquidProgressBar(progress = progress / 100f, height = 6.dp)
+        }
     }
+}
+
+@Composable
+private fun TrainingLogItem(log: WorkoutLog) {
+    val vb = LocalVoltBodyColors.current
+    Row(
+        modifier = Modifier.fillMaxWidth().background(vb.surfaceElevated.copy(0.2f), RoundedCornerShape(12.dp)).border(1.dp, vb.border.copy(0.1f), RoundedCornerShape(12.dp)).padding(12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("EJERCICIO", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("${log.weight}KG", style = MaterialTheme.typography.labelSmall.copy(fontMono = true), color = vb.textMuted)
+            Text("X${log.reps}", style = MaterialTheme.typography.labelSmall.copy(fontMono = true, fontWeight = FontWeight.Black), color = vb.accent)
+        }
+    }
+}
+
+@Composable
+private fun MacroPill(text: String) {
+    val vb = LocalVoltBodyColors.current
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, fontMono = true),
+        color = vb.textMuted,
+        modifier = Modifier.background(vb.surfaceElevated.copy(0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
+    )
 }
