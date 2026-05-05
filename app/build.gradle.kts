@@ -68,7 +68,6 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.compose.foundation)
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -77,7 +76,7 @@ dependencies {
     implementation(libs.androidx.splashscreen)
     implementation(libs.google.material)
 
-    // Compose
+    // Compose (versions managed by BOM)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -120,6 +119,7 @@ dependencies {
 
     // Permissions
     implementation(libs.accompanist.permissions)
+
     // Health Connect
     implementation(libs.androidx.health.connect)
 
