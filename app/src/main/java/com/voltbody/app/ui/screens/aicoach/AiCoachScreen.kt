@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.ui.components.AccentDivider
 import com.voltbody.app.ui.components.LiquidGlassScaffold
 import com.voltbody.app.ui.theme.*
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 
 @Composable
@@ -54,9 +55,7 @@ fun AiCoachScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(vb.bg)
-            ) {
-                // Background effects if needed
-            }
+            )
         }
     ) { hazeState ->
         Column(

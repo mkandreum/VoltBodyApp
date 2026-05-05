@@ -341,7 +341,7 @@ private fun ExerciseCard(
                     if (isComplete) {
                         Icon(Icons.Filled.CheckCircle, null, tint = vb.accent, modifier = Modifier.size(28.dp))
                     } else {
-                        Icon(Icons.Default.Dumbbell, null, tint = if (completedSets > 0) vb.accent else vb.textMuted.copy(0.5f))
+                        Icon(Icons.Default.FitnessCenter, null, tint = if (completedSets > 0) vb.accent else vb.textMuted.copy(0.5f))
                     }
                 }
                 

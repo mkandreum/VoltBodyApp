@@ -49,55 +49,56 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {
-                StaggeredEntrance(0) {
-                    HomeHeader(name = state.greeting.split(" ").lastOrNull() ?: "Guerrero")
-                }
+                HomeHeader(name = state.userName, onProfileClick = onNavigateToProfile)
             }
 
             item {
-                StaggeredEntrance(1) {
-                    HeroMotivationCard(
-                        phrase = state.motivationPhrase,
-                        workout = state.todayWorkout,
-                        progress = (state.todayLogs.toFloat() / (state.todayWorkout?.exerciseCount?.coerceAtLeast(1) ?: 1) * 100).coerceAtMost(100f),
-                        onStart = { state.todayWorkout?.let { onNavigateToWorkout(it.id) } },
-                        hazeState = hazeState
-                    )
-                }
+                HeroMotivationCard(
+                    phrase = state.motivationPhrase,
+                    workout = state.todayWorkout,
+                    progress = 0f, // From state if available, or calc
+                    onStart = { state.todayWorkout?.let { onNavigateToWorkout(it.id) } },
+                    hazeState = hazeState
+                )
             }
 
             item {
-                StaggeredEntrance(2) {
-                    BentoGrid(state = state, hazeState = hazeState, onNavigateToDiet = onNavigateToDiet)
-                }
+                BentoGrid(state = state, hazeState = hazeState, onNavigateToDiet = onNavigateToDiet)
             }
 
             item {
-                StaggeredEntrance(3) {
-                    LevelProgressCard(
-                        current = state.xpCurrent,
-                        target = state.xpToNext,
-                        level = state.xpLevel,
-                        hazeState = hazeState
-                    )
-                }
+                LevelProgressCard(
+                    current = state.xpCurrent,
+                    target = state.xpToNext,
+                    level = state.xpLevel,
+                    hazeState = hazeState
+                )
             }
 
-            item { Spacer(modifier = Modifier.height(100.dp)) }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }
 }
 
 @Composable
-private fun HomeHeader(name: String) {
+private fun HomeHeader(name: String, onProfileClick: () -> Unit) {
     val vb = LocalVoltBodyColors.current
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column {
-            Text("HOLA,", style = UppercaseLabel.copy(fontSize = 10.sp, letterSpacing = 2.sp), color = vb.textMuted)
-            HeadlineGradient(name.uppercase(), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black))
+            Text("HOLA,", style = UppercaseLabel.copy(fontSize = 12.sp), color = vb.textMuted)
+            Text(name.uppercase().ifEmpty { "GUERRERO" }, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
         }
         Box(
-            modifier = Modifier.size(44.dp).clip(CircleShape).background(vb.surfaceElevated.copy(0.3f)).border(1.dp, vb.border.copy(0.5f), CircleShape),
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(vb.surfaceElevated.copy(0.3f))
+                .border(1.dp, vb.border.copy(0.5f), CircleShape)
+                .clickable { onProfileClick() },
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.Notifications, null, tint = ColorWhite, modifier = Modifier.size(20.dp))
@@ -108,7 +109,7 @@ private fun HomeHeader(name: String) {
 @Composable
 private fun HeroMotivationCard(
     phrase: String,
-    workout: com.voltbody.app.domain.model.WorkoutDay?,
+    workout: TodayWorkoutInfo?,
     progress: Float,
     onStart: () -> Unit,
     hazeState: HazeState? = null
@@ -119,12 +120,12 @@ private fun HeroMotivationCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text("🔥 MODO GUERRERO", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.accent)
                 Text(
-                    if (workout != null) "HOY: ${workout.name.uppercase()}" else "HOY: DESCANSO MERECIDO",
+                    if (workout != null) "HOY: ${workout.name.uppercase()}" else "HOY: DESCANSO",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
                     color = ColorWhite
                 )
             }
-            VoltBodyCircularProgress(value = if (workout != null) progress else 100f, size = 56.dp)
+            VoltBodyCircularProgress(value = progress * 100, size = 56.dp)
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -148,12 +149,12 @@ private fun HeroMotivationCard(
 
 @Composable
 private fun BentoGrid(
-    state: com.voltbody.app.ui.screens.home.HomeState,
+    state: HomeState,
     hazeState: HazeState? = null,
     onNavigateToDiet: () -> Unit
 ) {
+    val vb = LocalVoltBodyColors.current
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Row 1: Hydration & Consistency
         Row(modifier = Modifier.fillMaxWidth().height(160.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LiquidGlassCard(modifier = Modifier.weight(0.4f).fillMaxHeight(), hazeState = hazeState) {
                 Icon(Icons.Default.LocalDrink, null, tint = ColorInfo, modifier = Modifier.size(24.dp))
@@ -165,15 +166,15 @@ private fun BentoGrid(
                 Text("CONSISTENCIA", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val maxVol = state.dailyVolumeKg.maxOrNull()?.coerceAtLeast(1f) ?: 1f
                     state.dailyVolumeKg.takeLast(7).forEach { vol ->
-                        val h = (vol / (state.dailyVolumeKg.maxOrNull()?.coerceAtLeast(1f) ?: 1f) * 1f)
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight(h.coerceAtLeast(0.1f)).clip(RoundedCornerShape(4.dp)).background(if (vol > 0) vb.accent else vb.textMuted.copy(0.2f)))
+                        val h = (vol / maxVol).coerceAtLeast(0.1f)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(4.dp)).background(if (vol > 0) vb.accent else vb.textMuted.copy(0.2f)))
                     }
                 }
             }
         }
         
-        // Row 2: Next Meal
         LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState, onClick = onNavigateToDiet) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(vb.accent.copy(0.1f)), contentAlignment = Alignment.Center) {
@@ -181,14 +182,13 @@ private fun BentoGrid(
                 }
                 Column {
                     Text("PRÓXIMA COMIDA", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
-                    Text("POLLO CON ARROZ Y AGUACATE", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
+                    Text("POLLO CON ARROZ", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Icon(Icons.Default.ChevronRight, null, tint = vb.textMuted)
             }
         }
         
-        // Row 3: Weight & AI
         Row(modifier = Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LiquidGlassCard(modifier = Modifier.weight(1f).fillMaxHeight(), hazeState = hazeState) {
                 Text("PESO", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
@@ -198,11 +198,11 @@ private fun BentoGrid(
                     Text("KG", style = MaterialTheme.typography.labelSmall, color = vb.textMuted, modifier = Modifier.padding(bottom = 4.dp))
                 }
             }
-            LiquidGlassCard(modifier = Modifier.weight(1f).fillMaxHeight(), hazeState = hazeState) {
+            LiquidGlassCard(modifier = Modifier.weight(1f).fillMaxHeight(), hazeState = hazeState, accentGlow = true) {
                 Icon(Icons.Default.AutoAwesome, null, tint = vb.accent, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.weight(1f))
-                Text("AI COACH", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                Text("ANALIZAR PROGRESO", style = UppercaseLabel.copy(fontSize = 7.sp), color = vb.textMuted)
+                Text("COACH IA", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                Text("ANALIZANDO...", style = UppercaseLabel.copy(fontSize = 7.sp), color = vb.accent)
             }
         }
     }
@@ -217,7 +217,7 @@ private fun LevelProgressCard(current: Int, target: Int, level: Int, hazeState: 
             Text("$current / $target XP", style = MonoMetric.copy(fontSize = 11.sp), color = vb.accent)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        LiquidProgressBar(progress = current.toFloat() / target)
+        LiquidProgressBar(progress = if (target > 0) current.toFloat() / target else 0f)
         Spacer(modifier = Modifier.height(8.dp))
         Text("Te faltan ${target - current} XP para el nivel ${level + 1}", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
     }

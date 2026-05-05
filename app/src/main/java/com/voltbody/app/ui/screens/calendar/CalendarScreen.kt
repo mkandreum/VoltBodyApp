@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.domain.model.*
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
+import dev.chrisbanes.haze.HazeState
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -335,7 +336,7 @@ private fun ExerciseSmallItem(exercise: Exercise, hazeState: dev.chrisbanes.haze
                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(vb.surfaceElevated.copy(0.5f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Dumbbell, null, tint = vb.accent, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.FitnessCenter, null, tint = vb.accent, modifier = Modifier.size(20.dp))
             }
             Column {
                 Text(exercise.name.uppercase(), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)

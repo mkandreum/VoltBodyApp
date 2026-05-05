@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -18,10 +19,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,10 +34,13 @@ import coil.compose.AsyncImage
 import com.voltbody.app.domain.model.*
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
+import com.voltbody.app.ui.screens.profile.components.PersonalRecordsCard
+import com.voltbody.app.ui.screens.profile.components.WeeklyGoalsCard
 import dev.chrisbanes.haze.HazeState
 
 @Composable
 fun ProfileScreen(
+    onLogout: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val vb = LocalVoltBodyColors.current
@@ -72,7 +79,7 @@ fun ProfileScreen(
                     StaggeredEntrance(1) {
                         ProfileStatsRow(
                             workouts = state.totalWorkoutLogs,
-                            streak = 5, // Mocked or from state
+                            streak = 5,
                             xp = state.totalWorkoutLogs * 50
                         )
                     }
@@ -107,9 +114,10 @@ fun ProfileScreen(
 
                 item {
                     StaggeredEntrance(5) {
+                        // Using set of labels for WeeklyGoalsCard compatibility
                         WeeklyGoalsCard(
                             goals = state.completedWeeklyGoals,
-                            onToggle = { viewModel.toggleWeeklyGoal(it) },
+                            onToggleGoal = { viewModel.toggleWeeklyGoal(it) },
                             hazeState = hazeState
                         )
                     }
@@ -122,7 +130,10 @@ fun ProfileScreen(
                             onThemeChange = { viewModel.setTheme(it) },
                             notifsEnabled = state.notificationsEnabled,
                             onNotifsToggle = { viewModel.toggleNotifications() },
-                            onLogout = { viewModel.logout() },
+                            onLogout = { 
+                                viewModel.logout()
+                                onLogout()
+                            },
                             hazeState = hazeState
                         )
                     }
@@ -137,16 +148,16 @@ fun ProfileScreen(
 @Composable
 private fun ProfileHeader(name: String, photoUrl: String?, level: Int) {
     val vb = LocalVoltBodyColors.current
-    val infiniteTransition = rememberInfiniteTransition()
+    val infiniteTransition = rememberInfiniteTransition(label = "avatar_glow")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Reverse)
+        animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Reverse),
+        label = "glow_alpha"
     )
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
-            // Glowing ring
             Box(
                 modifier = Modifier
                     .size(110.dp)
@@ -156,7 +167,6 @@ private fun ProfileHeader(name: String, photoUrl: String?, level: Int) {
                     .border(1.dp, vb.accent.copy(0.2f), CircleShape)
             )
             
-            // Avatar
             Box(
                 modifier = Modifier
                     .size(90.dp)
@@ -164,7 +174,7 @@ private fun ProfileHeader(name: String, photoUrl: String?, level: Int) {
                     .background(vb.surfaceElevated),
                 contentAlignment = Alignment.Center
             ) {
-                if (photoUrl != null) {
+                if (!photoUrl.isNullOrEmpty()) {
                     AsyncImage(
                         model = photoUrl,
                         contentDescription = null,
@@ -176,7 +186,6 @@ private fun ProfileHeader(name: String, photoUrl: String?, level: Int) {
                 }
             }
             
-            // Level badge
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -191,7 +200,7 @@ private fun ProfileHeader(name: String, photoUrl: String?, level: Int) {
         }
         
         Spacer(modifier = Modifier.height(16.dp))
-        HeadlineGradient(name.uppercase(), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black))
+        HeadlineGradient(name.uppercase().ifEmpty { "USUARIO" }, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black))
         Text("GUERRERO VOLTBODY", style = UppercaseLabel.copy(fontSize = 10.sp, letterSpacing = 2.sp), color = vb.textMuted)
     }
 }
@@ -251,7 +260,6 @@ private fun WeightChartCard(
         
         Spacer(modifier = Modifier.height(20.dp))
         
-        // Simple Chart Placeholder/Drawing
         Box(modifier = Modifier.fillMaxWidth().height(100.dp).clip(RoundedCornerShape(12.dp)).background(vb.surfaceElevated.copy(0.2f)).padding(12.dp)) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val path = Path()
@@ -260,20 +268,20 @@ private fun WeightChartCard(
                     val height = size.height
                     val minW = logs.minOf { it.weight } - 2
                     val maxW = logs.maxOf { it.weight } + 2
-                    val diffW = maxW - minW
+                    val diffW = (maxW - minW).coerceAtLeast(1f)
                     
                     logs.takeLast(10).forEachIndexed { i, log ->
-                        val x = i * (width / (logs.takeLast(10).size - 1))
+                        val x = i * (width / (logs.takeLast(10).size - 1).coerceAtLeast(1))
                         val y = height - ((log.weight - minW) / diffW * height)
                         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
-                    drawPath(path, color = vb.accent, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    drawPath(path, color = vb.accent, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                 } else {
                     drawLine(vb.textMuted.copy(0.2f), Offset(0f, size.height/2), Offset(size.width, size.height/2), strokeWidth = 2.dp.toPx())
                 }
             }
             if (logs.isEmpty()) {
-                Text("No hay datos suficientes para el gráfico", style = MaterialTheme.typography.labelSmall, color = vb.textMuted, modifier = Modifier.align(Alignment.Center))
+                Text("No hay datos suficientes", style = MaterialTheme.typography.labelSmall, color = vb.textMuted, modifier = Modifier.align(Alignment.Center))
             }
         }
     }
@@ -295,17 +303,17 @@ private fun WeightLogDialog(onDismiss: () -> Unit, onSave: (Float) -> Unit) {
                 value = weight,
                 onValueChange = { weight = it },
                 label = { Text("Peso en KG") },
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent)
             )
         },
         confirmButton = {
-            Button(onClick = { weight.toFloatOrNull()?.let { onSave(it) } }, colors = ButtonDefaults.buttonColors(containerColor = vb.accent)) {
-                Text("Guardar")
+            TextButton(onClick = { weight.toFloatOrNull()?.let { onSave(it) } }) {
+                Text("GUARDAR", color = vb.accent, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            TextButton(onClick = onDismiss) { Text("CANCELAR", color = vb.textMuted) }
         },
         containerColor = vb.surfaceElevated,
         titleContentColor = ColorWhite,
@@ -314,36 +322,11 @@ private fun WeightLogDialog(onDismiss: () -> Unit, onSave: (Float) -> Unit) {
 }
 
 @Composable
-private fun PersonalRecordsCard(records: List<PersonalRecord>, hazeState: HazeState? = null) {
-    val vb = LocalVoltBodyColors.current
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Icons.Default.EmojiEvents, null, tint = vb.accent, modifier = Modifier.size(20.dp))
-            Text("PRs - RÉCORDS PERSONALES", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        if (records.isEmpty()) {
-            Text("Aún no has registrado ningún levantamiento pesado.", style = MaterialTheme.typography.bodySmall, color = vb.textMuted)
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                records.forEach { pr ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(pr.exerciseName.uppercase(), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                        Text("${pr.weight} KG", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Black, fontFamily = MonoMetric.fontFamily), color = vb.accent)
-                    }
-                    Divider(color = vb.border.copy(0.5f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun MotivationCard(phrase: String, photoUrl: String?, hazeState: HazeState? = null) {
     val vb = LocalVoltBodyColors.current
     LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
         Box(modifier = Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(16.dp))) {
-            if (photoUrl != null) {
+            if (!photoUrl.isNullOrEmpty()) {
                 AsyncImage(model = photoUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.4f)
             } else {
                 Box(modifier = Modifier.fillMaxSize().background(vb.accent.copy(0.1f)))
@@ -351,36 +334,11 @@ private fun MotivationCard(phrase: String, photoUrl: String?, hazeState: HazeSta
             Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Default.FormatQuote, null, tint = vb.accent, modifier = Modifier.size(32.dp))
                 Text(
-                    phrase.ifBlank { "LA DISCIPLINA ES EL PUENTE ENTRE LAS METAS Y EL LOGRO." },
+                    phrase.ifBlank { "LA DISCIPLINA ES EL PUENTE ENTRE LAS METAS Y EL LOGRO." }.uppercase(),
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
                     color = ColorWhite,
                     textAlign = TextAlign.Center
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeeklyGoalsCard(goals: List<WeeklyGoal>, onToggle: (String) -> Unit, hazeState: HazeState? = null) {
-    val vb = LocalVoltBodyColors.current
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Text("✅ OBJETIVOS SEMANALES", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
-        Spacer(modifier = Modifier.height(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            goals.forEach { goal ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Checkbox(
-                        checked = goal.completed,
-                        onCheckedChange = { onToggle(goal.id) },
-                        colors = CheckboxDefaults.colors(checkedColor = vb.accent, uncheckedColor = vb.textMuted)
-                    )
-                    Text(
-                        goal.title,
-                        style = MaterialTheme.typography.bodySmall.copy(textDecoration = if (goal.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else null),
-                        color = if (goal.completed) vb.textMuted else ColorWhite
-                    )
-                }
             }
         }
     }
@@ -400,18 +358,16 @@ private fun SettingsCard(
         Text("⚙️ CONFIGURACIÓN", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
         Spacer(modifier = Modifier.height(20.dp))
         
-        // Theme Selection
         Text("Personalización de color", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            ThemeCircle(AppTheme.VERDE_NEGRO, Color(0xFFC7FF00), theme == AppTheme.VERDE_NEGRO, onThemeChange)
-            ThemeCircle(AppTheme.AGUAMARINA_NEGRO, Color(0xFF00FFE0), theme == AppTheme.AGUAMARINA_NEGRO, onThemeChange)
-            ThemeCircle(AppTheme.OCASO_NEGRO, Color(0xFFFF5C00), theme == AppTheme.OCASO_NEGRO, onThemeChange)
+            ThemeCircle(AppTheme.VERDE_NEGRO, NeonGreen, theme == AppTheme.VERDE_NEGRO, onThemeChange)
+            ThemeCircle(AppTheme.AGUAMARINA_NEGRO, NeonAquamarine, theme == AppTheme.AGUAMARINA_NEGRO, onThemeChange)
+            ThemeCircle(AppTheme.OCASO_NEGRO, NeonOcaso, theme == AppTheme.OCASO_NEGRO, onThemeChange)
         }
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Notifications Toggle
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Notificaciones de entreno", style = MaterialTheme.typography.bodyMedium, color = ColorWhite)
             Switch(checked = notifsEnabled, onCheckedChange = { onNotifsToggle() }, colors = SwitchDefaults.colors(checkedThumbColor = vb.accent))
@@ -419,7 +375,6 @@ private fun SettingsCard(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Logout
         LiquidGlassButton(
             text = "CERRAR SESIÓN",
             onClick = onLogout,

@@ -185,7 +185,7 @@ private fun NutritionalSummaryCard(
 private fun MacrosGrid(macros: Macros) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MacroCard("PROTEÍNA", "${macros.protein}g", Icons.Default.Restaurant, Color(0xFFF87171), modifier = Modifier.weight(1f))
-        MacroCard("CARBOS", "${macros.carbs}g", Icons.Default.WheatDiet, Color(0xFFFBBF24), modifier = Modifier.weight(1f))
+        MacroCard("CARBOS", "${macros.carbs}g", Icons.Default.BakeryDining, Color(0xFFFBBF24), modifier = Modifier.weight(1f))
         MacroCard("GRASAS", "${macros.fat}g", Icons.Default.WaterDrop, Color(0xFF38BDF8), modifier = Modifier.weight(1f))
     }
 }
@@ -193,7 +193,7 @@ private fun MacrosGrid(macros: Macros) {
 @Composable
 private fun MacroCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier) {
     val vb = LocalVoltBodyColors.current
-    AppCard(modifier = modifier) {
+    LiquidGlassCard(modifier = modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
             Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(8.dp))
@@ -321,7 +321,7 @@ private fun PreferenceRow(label: String, value: String) {
 @Composable
 private fun SpecialDishCard() {
     val vb = LocalVoltBodyColors.current
-    AppCard(modifier = Modifier.fillMaxWidth(), accent = true) {
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), accentGlow = true) {
         Text("🍲 PLATO ESPECIAL AJUSTABLE", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
         Spacer(modifier = Modifier.height(8.dp))
         Text("Base: arroz + lentejas + tomate + queso feta", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)

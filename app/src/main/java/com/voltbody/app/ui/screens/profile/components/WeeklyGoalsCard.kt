@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.voltbody.app.domain.model.WeeklyGoal
 import com.voltbody.app.ui.components.LiquidGlassCard
 import com.voltbody.app.ui.components.LiquidProgressBar
 import com.voltbody.app.ui.components.GlowText
@@ -35,7 +36,7 @@ import dev.chrisbanes.haze.HazeState
 
 @Composable
 fun WeeklyGoalsCard(
-    completedGoals: Set<String>,
+    goals: List<WeeklyGoal>,
     onToggleGoal: (String) -> Unit,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null
@@ -43,16 +44,8 @@ fun WeeklyGoalsCard(
     val vb = LocalVoltBodyColors.current
     val haptic = rememberHaptic()
     
-    val predefinedGoals = listOf(
-        "ENTRENAR 3 DÍAS",
-        "BEBER 2L DE AGUA DIARIOS",
-        "CUMPLIR PROTEÍNA 5 DÍAS",
-        "DORMIR 7H+ 5 DÍAS",
-        "COMPLETAR SESIÓN EXTRA"
-    )
-    
-    val progress = if (predefinedGoals.isNotEmpty()) {
-        predefinedGoals.count { completedGoals.contains(it) }.toFloat() / predefinedGoals.size
+    val progress = if (goals.isNotEmpty()) {
+        goals.count { it.done }.toFloat() / goals.size
     } else 0f
     
     val animatedProgress by animateFloatAsState(targetValue = progress, label = "goals_progress")
@@ -90,12 +83,12 @@ fun WeeklyGoalsCard(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                predefinedGoals.forEach { goal ->
-                    val isChecked = completedGoals.contains(goal)
+                goals.forEach { goal ->
+                    val isChecked = goal.done
                     val checkScale by animateFloatAsState(
                         targetValue = if (isChecked) 1f else 0.8f,
                         animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
-                        label = "check_bounce_$goal"
+                        label = "check_bounce_${goal.id}"
                     )
 
                     Row(
@@ -105,14 +98,14 @@ fun WeeklyGoalsCard(
                             .background(if (isChecked) vb.accent.copy(alpha = 0.15f) else vb.surfaceElevated.copy(alpha = 0.3f))
                             .clickable {
                                 haptic.perform(HapticType.TICK)
-                                onToggleGoal(goal)
+                                onToggleGoal(goal.id)
                             }
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            goal,
+                            goal.label.uppercase(),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = if (isChecked) FontWeight.Black else FontWeight.Bold,
                                 letterSpacing = 0.5.sp

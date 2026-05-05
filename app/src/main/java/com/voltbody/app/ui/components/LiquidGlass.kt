@@ -1,6 +1,7 @@
 package com.voltbody.app.ui.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -88,10 +91,9 @@ fun LiquidGlassCard(
         )
         .clip(AppCardShape)
         .then(if (hazeState != null) Modifier.hazeChild(state = hazeState) else Modifier)
-        .background(vb.surfaceElevated.copy(0.3f)) // Neumorphic transparency
+        .background(vb.surfaceElevated.copy(0.3f))
         .drawWithContent {
             drawContent()
-            // Glossy edge highlight
             drawRoundRect(
                 color = Color.White.copy(alpha = 0.08f),
                 topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
@@ -290,3 +292,27 @@ fun HeadlineGradient(
         )
     )
 }
+
+@Composable
+fun GlowText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.bodyMedium,
+    color: Color = LocalVoltBodyColors.current.accent
+) {
+    Text(
+        text = text,
+        modifier = modifier,
+        style = style.copy(
+            shadow = Shadow(color = color.copy(0.5f), blurRadius = 16f)
+        ),
+        color = color
+    )
+}
+
+fun Modifier.neuroRaised(cornerRadius: Dp) = this.then(
+    Modifier
+        .shadow(8.dp, RoundedCornerShape(cornerRadius), ambientColor = Color.Black.copy(0.5f))
+        .background(NeuroSurface, RoundedCornerShape(cornerRadius))
+        .border(1.dp, ColorBorder, RoundedCornerShape(cornerRadius))
+)

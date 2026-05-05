@@ -27,7 +27,6 @@ sealed class Screen(val route: String) {
     object Diet : Screen("diet")
     object Calendar : Screen("calendar")
     object Profile : Screen("profile")
-    // Sprint 3
     object AiCoach : Screen("ai_coach")
 }
 
@@ -90,11 +89,25 @@ fun VoltBodyNavHost(
             )
         }
 
-        composable(Screen.Home.route) { HomeScreen() }
+        composable(Screen.Home.route) { 
+            HomeScreen(
+                onNavigateToWorkout = { day ->
+                    navController.navigate(Screen.Workout.route)
+                },
+                onNavigateToDiet = {
+                    navController.navigate(Screen.Diet.route)
+                },
+                onNavigateToProfile = {
+                    navController.navigate(Screen.Profile.route)
+                }
+            )
+        }
+
         composable(Screen.Workout.route) { WorkoutScreen() }
         composable(Screen.Diet.route) { DietScreen() }
         composable(Screen.Calendar.route) { CalendarScreen() }
         composable(Screen.AiCoach.route) { AiCoachScreen() }
+        
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onLogout = {

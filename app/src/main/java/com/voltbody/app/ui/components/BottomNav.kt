@@ -18,9 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -63,7 +61,6 @@ fun VoltBodyBottomNav(
             .padding(bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
         contentAlignment = Alignment.Center
     ) {
-        // ── iOS Pill Nav ─────────────────────────────────────────
         Row(
             modifier = Modifier
                 .widthIn(max = 520.dp)
@@ -83,8 +80,8 @@ fun VoltBodyBottomNav(
                         )
                     )
                 )
-                .background(Color(0xF208080C)) // rgba(8, 8, 12, 0.96)
-                .border(1.dp, Color(0x1AFFFFFF), CircleShape) // rgba(255, 255, 255, 0.10)
+                .background(Color(0xF208080C))
+                .border(1.dp, Color(0x1AFFFFFF), CircleShape)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -155,7 +152,6 @@ private fun NavButton(
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isActive) {
-                // Tab switch glow
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -170,9 +166,9 @@ private fun NavButton(
             Icon(
                 imageVector = item.icon,
                 contentDescription = item.label,
-                tint = if (isActive) vb.accent else Color(0xFFAEB5C1), // #aeb5c1
+                tint = if (isActive) vb.accent else Color(0xFFAEB5C1),
                 modifier = Modifier
-                    .size(18.dp) // Close to web's 16
+                    .size(18.dp)
                     .scale(scale)
             )
         }
@@ -248,4 +244,3 @@ fun CenterVoltButton(
         }
     }
 }
-
