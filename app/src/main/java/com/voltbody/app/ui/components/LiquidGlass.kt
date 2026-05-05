@@ -64,8 +64,7 @@ fun LiquidGlassScaffold(
             modifier = Modifier
                 .fillMaxSize()
                 .haze(
-                    state = hazeState,
-                    style = HazeDefaults.style(backgroundColor = bgColor),
+                    state = hazeState
                 )
         ) {
             background()
@@ -119,7 +118,8 @@ fun LiquidGlassCard(
             spotColor = if (accentGlow) vb.accent.copy(alpha = glowPulse * 0.5f) else Color.Black.copy(alpha = 0.1f)
         )
         // Apply Haze child if state is provided
-        .then(if (hazeState != null) Modifier.hazeChild(state = hazeState, shape = LiquidGlassShape) else Modifier)
+        .clip(LiquidGlassShape)
+        .then(if (hazeState != null) Modifier.hazeChild(state = hazeState) else Modifier)
         .clip(LiquidGlassShape)
         .background(
             brush = Brush.verticalGradient(
@@ -234,7 +234,8 @@ fun LiquidGlassButton(
                     Modifier.shadow(16.dp, LiquidGlassShapeSmall, spotColor = vb.accent.copy(glowPulse))
                 } else Modifier
             )
-            .then(if (hazeState != null && style != LiquidButtonStyle.Primary) Modifier.hazeChild(hazeState, LiquidGlassShapeSmall) else Modifier)
+            .clip(LiquidGlassShapeSmall)
+            .then(if (hazeState != null && style != LiquidButtonStyle.Primary) Modifier.hazeChild(state = hazeState) else Modifier)
             .clip(LiquidGlassShapeSmall)
             .background(bgBrush)
             .drawWithContent {

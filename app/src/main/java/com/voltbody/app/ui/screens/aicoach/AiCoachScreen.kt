@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.ui.components.AccentDivider
+import com.voltbody.app.ui.components.LiquidGlassScaffold
 import com.voltbody.app.ui.theme.*
 import kotlinx.coroutines.launch
 

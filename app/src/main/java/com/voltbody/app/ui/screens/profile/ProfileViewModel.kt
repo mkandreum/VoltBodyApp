@@ -7,7 +7,7 @@ import com.voltbody.app.data.remote.dto.UpdateProfileRequest
 import com.voltbody.app.data.remote.dto.ChangePasswordRequest
 import com.voltbody.app.data.remote.dto.*
 import com.voltbody.app.domain.model.*
-import com.voltbody.app.ui.screens.profile.components.PersonalRecord
+import com.voltbody.app.domain.model.PersonalRecord
 import com.voltbody.app.data.repository.AppRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*

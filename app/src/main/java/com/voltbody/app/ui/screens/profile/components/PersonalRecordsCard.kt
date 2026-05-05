@@ -22,6 +22,7 @@ import com.voltbody.app.ui.components.neuroRaised
 import com.voltbody.app.ui.theme.ColorWhite
 import com.voltbody.app.ui.theme.LocalVoltBodyColors
 import com.voltbody.app.ui.theme.MonoMetric
+import com.voltbody.app.domain.model.PersonalRecord
 import dev.chrisbanes.haze.HazeState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
