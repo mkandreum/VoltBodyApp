@@ -40,19 +40,7 @@ fun DietScreen(
     val totalMeals = state.diet?.meals?.size ?: 1
     val dailyCompliance = (eatenCount * 100) / totalMeals
 
-    LiquidGlassScaffold(
-        background = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .size(350.dp)
-                        .align(Alignment.BottomEnd)
-                        .offset(x = 50.dp, y = 50.dp)
-                        .background(ColorInfo.copy(alpha = 0.05f), CircleShape)
-                )
-            }
-        }
-    ) { hazeState ->
+    LiquidGlassScaffold { hazeState ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),

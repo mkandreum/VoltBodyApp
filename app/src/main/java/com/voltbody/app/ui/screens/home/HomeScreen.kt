@@ -37,27 +37,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val haptic = rememberHaptic()
 
-    LiquidGlassScaffold(
-        background = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Background blobs for depth (matching web's subtle glow)
-                Box(
-                    modifier = Modifier
-                        .size(500.dp)
-                        .align(Alignment.TopEnd)
-                        .offset(x = 100.dp, y = (-150).dp)
-                        .background(vb.accent.copy(alpha = 0.08f), CircleShape)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(300.dp)
-                        .align(Alignment.CenterStart)
-                        .offset(x = (-100).dp, y = 50.dp)
-                        .background(ColorInfo.copy(alpha = 0.05f), CircleShape)
-                )
-            }
-        }
-    ) { hazeState ->
+    LiquidGlassScaffold { hazeState ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),

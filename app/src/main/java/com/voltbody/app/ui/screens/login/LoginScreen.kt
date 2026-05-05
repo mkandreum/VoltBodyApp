@@ -55,18 +55,7 @@ fun LoginScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(vb.accentDim.copy(alpha = 0.12f), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(0.15f, -0.1f),
-                    radius = 800f
-                )
-            )
-            .background(vb.bg)
-    ) {
+    LiquidGlassScaffold { hazeState ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

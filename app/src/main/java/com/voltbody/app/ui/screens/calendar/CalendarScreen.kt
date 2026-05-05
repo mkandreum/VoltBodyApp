@@ -44,19 +44,7 @@ fun CalendarScreen(
         (0..6).map { startOfWeek.plusDays(it.toLong()) }
     }
 
-    LiquidGlassScaffold(
-        background = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .size(300.dp)
-                        .align(Alignment.TopEnd)
-                        .offset(x = 50.dp, y = 50.dp)
-                        .background(vb.accent.copy(alpha = 0.05f), CircleShape)
-                )
-            }
-        }
-    ) { hazeState ->
+    LiquidGlassScaffold { hazeState ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),

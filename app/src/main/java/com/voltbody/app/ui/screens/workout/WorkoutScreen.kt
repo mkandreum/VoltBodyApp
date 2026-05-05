@@ -42,16 +42,12 @@ fun WorkoutScreen(
     val completedSetsCount = uiState.completedSets.values.sum()
     val etaMinutes = (plannedSets - completedSetsCount).coerceAtLeast(0) * 2
 
+    var selectedExerciseForLog by remember { mutableStateOf<Exercise?>(null) }
+
     LiquidGlassScaffold(
         background = {
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .size(400.dp)
-                        .align(Alignment.TopStart)
-                        .offset(x = (-100).dp, y = (-50).dp)
-                        .background(vb.accent.copy(alpha = 0.05f), CircleShape)
-                )
+                // Background glows are now handled in the Scaffold itself
             }
         }
     ) { hazeState ->
@@ -60,7 +56,8 @@ fun WorkoutScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 1. Header (Matching Web)
+            // ... (keep header, weekly selector, hero card, progress)
+            // Header
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Default.FitnessCenter, null, tint = vb.accent, modifier = Modifier.size(32.dp))
@@ -74,7 +71,7 @@ fun WorkoutScreen(
                 }
             }
 
-            // 2. Weekly Selector (7-day Grid)
+            // Weekly Selector
             item {
                 StaggeredEntrance(1) {
                     LiquidGlassCard(hazeState = hazeState) {
@@ -119,7 +116,7 @@ fun WorkoutScreen(
                 }
             }
 
-            // 3. Hero Card (Prioritaria)
+            // Hero Card
             item {
                 StaggeredEntrance(2) {
                     LiquidGlassCard(modifier = Modifier.fillMaxWidth(), accentGlow = true, hazeState = hazeState) {
@@ -160,7 +157,7 @@ fun WorkoutScreen(
                 }
             }
 
-            // 4. Checklist Progress
+            // Progress
             item {
                 StaggeredEntrance(3) {
                     LiquidGlassCard(hazeState = hazeState) {
@@ -179,13 +176,13 @@ fun WorkoutScreen(
                 }
             }
 
-            // 5. Exercise List
+            // Exercise List
             itemsIndexed(currentDay?.exercises ?: emptyList()) { index, exercise ->
                 StaggeredEntrance(index + 4) {
                     ExerciseItem(
                         exercise = exercise,
                         setsDone = uiState.completedSets[exercise.id] ?: 0,
-                        onSelect = { viewModel.openLogSheet(exercise) },
+                        onSelect = { selectedExerciseForLog = exercise },
                         hazeState = hazeState
                     )
                 }
@@ -193,6 +190,20 @@ fun WorkoutScreen(
 
             item { Spacer(Modifier.height(100.dp)) }
         }
+    }
+
+    // Modal Log Sheet
+    selectedExerciseForLog?.let { exercise ->
+        com.voltbody.app.ui.screens.workout.components.ExerciseLogSheet(
+            exercise = exercise,
+            setsDone = uiState.completedSets[exercise.id] ?: 0,
+            onDismiss = { selectedExerciseForLog = null },
+            onLogSet = { weight, reps ->
+                viewModel.logSet(exercise.id, weight, reps)
+                // We keep it open if the user wants to log more series, 
+                // just like web often does until closed manually or routine finished.
+            }
+        )
     }
 }
 

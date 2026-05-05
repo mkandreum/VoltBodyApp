@@ -41,11 +41,7 @@ fun OnboardingScreen(
         if (uiState.isComplete) onComplete()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(vb.bg)
-    ) {
+    LiquidGlassScaffold { hazeState ->
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),

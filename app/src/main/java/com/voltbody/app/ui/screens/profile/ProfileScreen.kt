@@ -39,19 +39,7 @@ fun ProfileScreen(
         (state.completedWeeklyGoals.count { it.completed } * 100) / state.completedWeeklyGoals.size
     } else 0
 
-    LiquidGlassScaffold(
-        background = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .size(400.dp)
-                        .align(Alignment.CenterEnd)
-                        .offset(x = 150.dp)
-                        .background(vb.accent.copy(alpha = 0.05f), CircleShape)
-                )
-            }
-        }
-    ) { hazeState ->
+    LiquidGlassScaffold { hazeState ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),

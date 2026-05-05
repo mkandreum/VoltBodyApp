@@ -51,10 +51,73 @@ fun LiquidGlassScaffold(
     content: @Composable BoxScope.(HazeState) -> Unit
 ) {
     val hazeState = remember { HazeState() }
-    Box(modifier = modifier.fillMaxSize().background(LocalVoltBodyColors.current.bg)) {
+    val vb = LocalVoltBodyColors.current
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(vb.bg)
+    ) {
+        // 1. Grid Background (Matching Web 28px)
+        Canvas(modifier = Modifier.fillMaxSize().alpha(0.15f)) {
+            val gridSize = 28.dp.toPx()
+            val strokeWidth = 1.dp.toPx()
+            
+            // Vertical lines
+            for (x in 0..(size.width / gridSize).toInt()) {
+                drawLine(
+                    color = Color.White.copy(0.1f),
+                    start = Offset(x * gridSize, 0f),
+                    end = Offset(x * gridSize, size.height),
+                    strokeWidth = strokeWidth
+                )
+            }
+            
+            // Horizontal lines
+            for (y in 0..(size.height / gridSize).toInt()) {
+                drawLine(
+                    color = Color.White.copy(0.1f),
+                    start = Offset(0f, y * gridSize),
+                    end = Offset(size.width, y * gridSize),
+                    strokeWidth = strokeWidth
+                )
+            }
+        }
+
+        // 2. Glow Blobs (Matching Web radial-gradients)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Glow Top Start
+            Box(
+                modifier = Modifier
+                    .size(500.dp)
+                    .offset(x = (-150).dp, y = (-100).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(vb.accent.copy(0.12f), Color.Transparent)
+                        ),
+                        CircleShape
+                    )
+            )
+            // Glow Top End
+            Box(
+                modifier = Modifier
+                    .size(400.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 100.dp, y = (-50).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(vb.accent.copy(0.08f), Color.Transparent)
+                        ),
+                        CircleShape
+                    )
+            )
+        }
+
+        // 3. Optional dynamic background
         Box(modifier = Modifier.fillMaxSize().haze(state = hazeState)) {
             background()
         }
+        
         content(hazeState)
     }
 }
