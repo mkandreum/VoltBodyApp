@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voltbody.app.domain.model.AppTab
@@ -43,7 +43,7 @@ fun VoltBodyBottomNav(
     modifier: Modifier = Modifier
 ) {
     val vb = LocalVoltBodyColors.current
-    val haptic = rememberHaptic()
+    val haptic = LocalHapticFeedback.current
 
     val leftItems = listOf(
         NavItem(AppTab.WORKOUT, Icons.Outlined.FitnessCenter, "Rutina"),
@@ -92,7 +92,7 @@ fun VoltBodyBottomNav(
                     item = item,
                     isActive = currentTab == item.tab,
                     onClick = {
-                        haptic.perform(HapticType.TICK)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(item.tab)
                     },
                     modifier = Modifier.weight(1f)
@@ -102,7 +102,7 @@ fun VoltBodyBottomNav(
             CenterVoltButton(
                 isActive = currentTab == AppTab.HOME || currentTab == AppTab.AI_COACH,
                 onClick = {
-                    haptic.perform(HapticType.TICK)
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onTabSelected(AppTab.HOME)
                 },
                 modifier = Modifier.weight(1.8f)
@@ -113,7 +113,7 @@ fun VoltBodyBottomNav(
                     item = item,
                     isActive = currentTab == item.tab,
                     onClick = {
-                        haptic.perform(HapticType.TICK)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(item.tab)
                     },
                     modifier = Modifier.weight(1f)
@@ -152,7 +152,7 @@ private fun NavButton(
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(28.dp)) {
             // Liquid Indicator behind icon
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = isActive,
                 enter = scaleIn(animationSpec = NavSpring) + fadeIn(),
                 exit = scaleOut(animationSpec = NavSpring) + fadeOut()
@@ -242,7 +242,6 @@ fun CenterVoltButton(
                 modifier = Modifier.size(20.dp).graphicsLayer {
                     if (isActive) {
                         shadowElevation = 8f
-                        spotColor = vb.accent
                     }
                 }
             )

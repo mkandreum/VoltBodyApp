@@ -9,7 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Quote
+import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,7 +59,7 @@ fun HomeScreen(
                     StaggeredEntrance(1) {
                         LiquidGlassCard(hazeState = hazeState, accentGlow = true) {
                             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Icon(Icons.Outlined.Quote, null, tint = vb.accent, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Outlined.FormatQuote, null, tint = vb.accent, modifier = Modifier.size(20.dp))
                                 Text(
                                     state.motivationPhrase,
                                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -157,7 +158,7 @@ private fun HomeHeader(name: String, progress: Int, onProfileClick: () -> Unit) 
                 .clickable { onProfileClick() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Flame, null, tint = vb.accent, modifier = Modifier.size(24.dp))
+            Icon(Icons.Default.Person, null, tint = vb.accent, modifier = Modifier.size(24.dp))
         }
     }
 }
@@ -219,7 +220,7 @@ private fun HeroCard(
                 onClick = onStart,
                 modifier = Modifier.weight(1.2f),
                 style = LiquidButtonStyle.Primary,
-                leadingIcon = { Icon(Icons.Default.Zap, null, size = 16.dp) }
+                leadingIcon = { Icon(Icons.Default.Bolt, null, size = 16.dp) }
             )
             LiquidGlassButton(
                 text = "DIETA 🍽️",
@@ -245,7 +246,7 @@ private fun XpProgressCard(
     LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Zap, null, tint = vb.accent, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.Bolt, null, tint = vb.accent, modifier = Modifier.size(14.dp))
                 Text("NIVEL $level", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
                 Text("· $totalXP XP TOTAL", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = vb.textMuted)
             }
@@ -288,7 +289,7 @@ private fun BentoGrid(state: HomeState, hazeState: HazeState? = null) {
                 title = "OBJETIVO CALÓRICO",
                 value = "${state.weeklyTarget * 500}", // Example
                 subtitle = "🍽️ ${state.weeklyTarget} COMIDAS",
-                icon = Icons.Default.Flame,
+                icon = Icons.Default.Whatshot,
                 modifier = Modifier.weight(1f),
                 hazeState = hazeState
             )
@@ -296,7 +297,7 @@ private fun BentoGrid(state: HomeState, hazeState: HazeState? = null) {
                 title = "RECUPERACIÓN",
                 value = "92%",
                 subtitle = "🌙 ESTADO DE DESCANSO",
-                icon = Icons.Default.Moonlight,
+                icon = Icons.Default.NightsStay,
                 modifier = Modifier.weight(1f),
                 hazeState = hazeState
             )
@@ -331,16 +332,16 @@ private fun TimelineSection(state: HomeState, hazeState: HazeState? = null) {
         Spacer(Modifier.height(20.dp))
         
         Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            TimelineItem(time = "08:00", title = "🥣 DESAYUNO DE ARRANQUE", done = true)
-            TimelineItem(time = "ENTRENO", title = "💪 ${state.todayWorkout?.name ?: "SESIÓN RÁPIDA"}", done = state.todayLogs > 0)
-            TimelineItem(time = "14:00", title = "🍗 COMIDA PRINCIPAL", done = false)
-            TimelineItem(time = "PROGRESO", title = "📸 SUBIR FOTO DEL DÍA", done = false)
+            TimelineRow(time = "07:30", title = "PROTEÍNA + AVENA", done = true)
+            TimelineRow(time = "10:30", title = "ENTRENO FUERZA", done = true)
+            TimelineRow(time = "14:00", title = "POLLO + ARROZ", done = false)
+            TimelineRow(time = "18:00", title = "BATIDO + FRUTA", done = false)
         }
     }
 }
 
 @Composable
-private fun TimelineItem(time: String, title: String, done: Boolean) {
+private fun TimelineRow(time: String, title: String, done: Boolean) {
     val vb = LocalVoltBodyColors.current
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {

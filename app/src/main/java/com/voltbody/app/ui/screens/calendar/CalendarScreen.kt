@@ -56,7 +56,7 @@ fun CalendarScreen(
                     Icon(Icons.Default.CalendarMonth, null, tint = vb.accent, modifier = Modifier.size(32.dp))
                     Column {
                         Text("📅 CALENDARIO", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                        Text("PLANIFICACIÓN Y REGISTRO", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontMono = true), color = vb.textMuted)
+                        Text("PLANIFICACIÓN Y REGISTRO", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontFamily = MonoFontFamily), color = vb.textMuted)
                     }
                 }
             }
@@ -129,7 +129,7 @@ fun CalendarScreen(
                         if (selectedDate == LocalDate.now()) {
                             Text(
                                 "HOY",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontMono = true),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontFamily = MonoFontFamily),
                                 color = vb.accent,
                                 modifier = Modifier.background(vb.accent.copy(0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -246,8 +246,8 @@ private fun TrainingLogItem(log: WorkoutLog) {
     ) {
         Text("EJERCICIO", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("${log.weight}KG", style = MaterialTheme.typography.labelSmall.copy(fontMono = true), color = vb.textMuted)
-            Text("X${log.reps}", style = MaterialTheme.typography.labelSmall.copy(fontMono = true, fontWeight = FontWeight.Black), color = vb.accent)
+            Text("${log.weight}KG", style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFontFamily), color = vb.textMuted)
+            Text("X${log.reps}", style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFontFamily, fontWeight = FontWeight.Black), color = vb.accent)
         }
     }
 }
@@ -257,7 +257,7 @@ private fun MacroPill(text: String) {
     val vb = LocalVoltBodyColors.current
     Text(
         text,
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, fontMono = true),
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = MonoFontFamily),
         color = vb.textMuted,
         modifier = Modifier.background(vb.surfaceElevated.copy(0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
     )
