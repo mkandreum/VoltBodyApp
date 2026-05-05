@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -31,18 +32,20 @@ import androidx.compose.ui.unit.sp
 import com.voltbody.app.ui.theme.*
 import com.voltbody.app.util.HapticType
 import com.voltbody.app.util.rememberHaptic
+import dev.chrisbanes.haze.HazeDefaults
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
 
-// ─── Liquid Glass Design Tokens ──────────────────────────────────────────────
-// Authentic iOS 26 Liquid Glass: refracion, inner highlights, depth re-imagined.
+// ─── Liquid Glass Design Tokens ────────────────────────────────────────────
+// Authentic iOS 26 Liquid Glass: refraction, inner highlights, depth re-imagined.
 
 private val LiquidGlassShape = RoundedCornerShape(26.dp)
 private val LiquidGlassShapeSmall = RoundedCornerShape(18.dp)
 private val LiquidSpring = spring<Float>(dampingRatio = 0.65f, stiffness = 350f)
 
-// ─── LiquidGlassScaffold ────────────────────────────────────────────────────
+// ─── LiquidGlassScaffold ──────────────────────────────────────────────
 // Global manager for backdrop blur. Wraps the screen and provides hazeState.
 
 @Composable
@@ -52,27 +55,29 @@ fun LiquidGlassScaffold(
     content: @Composable BoxScope.(HazeState) -> Unit
 ) {
     val hazeState = remember { HazeState() }
-    
+    val bgColor = LocalVoltBodyColors.current.bg
+
     Box(modifier = modifier.fillMaxSize()) {
         // Background layer (where blur is sampled)
+        // haze 1.x API: Modifier.haze(state, style) — backgroundColor lives inside HazeStyle
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .haze(
                     state = hazeState,
-                    backgroundColor = LocalVoltBodyColors.current.bg,
+                    style = HazeDefaults.style(backgroundColor = bgColor),
                 )
         ) {
             background()
         }
-        
+
         // Content layer
         content(hazeState)
     }
 }
 
-// ─── LiquidGlassCard ────────────────────────────────────────────────────────
-// Real glass card using backdrop blur (Haze), inner pill highlights, 
+// ─── LiquidGlassCard ─────────────────────────────────────────────────
+// Real glass card using backdrop blur (Haze), inner pill highlights,
 // and dynamic vertical gradient borders.
 
 @Composable
@@ -126,7 +131,7 @@ fun LiquidGlassCard(
         )
         .drawWithContent {
             drawContent()
-            
+
             // 1. Inner Highlight Pill (Top Edge) - Characteristic of real glass
             drawRoundRect(
                 color = Color.White.copy(alpha = 0.22f),
@@ -134,7 +139,7 @@ fun LiquidGlassCard(
                 size = Size(size.width - 48.dp.toPx(), 1.5.dp.toPx()),
                 cornerRadius = CornerRadius(1.dp.toPx())
             )
-            
+
             // 2. Inner Shadow / Material Thickness
             drawRect(
                 brush = Brush.verticalGradient(
@@ -173,7 +178,7 @@ fun LiquidGlassCard(
     }
 }
 
-// ─── LiquidGlassButton ──────────────────────────────────────────────────────
+// ─── LiquidGlassButton ───────────────────────────────────────────────
 // High-fidelity glass button with backdrop blur, shimmer, and pulsing glow.
 
 @Composable
@@ -193,7 +198,8 @@ fun LiquidGlassButton(
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed && enabled) 0.96f else 1f,
-        animationSpec = LiquidSpring
+        animationSpec = LiquidSpring,
+        label = "btn_scale"
     )
 
     val shimmerTransition = rememberInfiniteTransition(label = "btn_anim")
@@ -272,14 +278,21 @@ fun LiquidGlassButton(
         Row(verticalAlignment = Alignment.CenterVertically) {
             leadingIcon?.invoke()
             if (leadingIcon != null) Spacer(Modifier.width(8.dp))
-            Text(text.uppercase(), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 1.sp), color = textColor)
+            Text(
+                text.uppercase(),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                ),
+                color = textColor
+            )
         }
     }
 }
 
 enum class LiquidButtonStyle { Primary, Secondary, Danger }
 
-// ─── LiquidProgressBar ──────────────────────────────────────────────────────
+// ─── LiquidProgressBar ──────────────────────────────────────────────
 // XP bar with internal shimmer and external glow pulse.
 
 @Composable
@@ -289,8 +302,12 @@ fun LiquidProgressBar(
     height: Dp = 10.dp
 ) {
     val vb = LocalVoltBodyColors.current
-    val animProgress by animateFloatAsState(progress.coerceIn(0f, 1f), tween(1000, easing = FastOutSlowInEasing))
-    
+    val animProgress by animateFloatAsState(
+        progress.coerceIn(0f, 1f),
+        tween(1000, easing = FastOutSlowInEasing),
+        label = "progress"
+    )
+
     val infiniteTransition = rememberInfiniteTransition(label = "pb")
     val shimmerOffset by infiniteTransition.animateFloat(
         initialValue = -1f,
@@ -329,7 +346,7 @@ fun LiquidProgressBar(
     }
 }
 
-// ─── HeadlineGradient ───────────────────────────────────────────────────────
+// ─── HeadlineGradient ───────────────────────────────────────────────
 
 @Composable
 fun HeadlineGradient(
@@ -353,7 +370,7 @@ fun HeadlineGradient(
     )
 }
 
-// ─── GlowText ───────────────────────────────────────────────────────────────
+// ─── GlowText ───────────────────────────────────────────────────────────
 
 @Composable
 fun GlowText(
