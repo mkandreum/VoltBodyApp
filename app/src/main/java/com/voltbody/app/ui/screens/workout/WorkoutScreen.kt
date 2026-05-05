@@ -52,7 +52,6 @@ fun WorkoutScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.size(400.dp).align(Alignment.TopEnd).background(vb.accent.copy(0.12f), CircleShape).offset(80.dp, (-80).dp))
                 Box(modifier = Modifier.size(300.dp).align(Alignment.CenterStart).background(ColorError.copy(0.1f), CircleShape).offset((-100).dp, 150.dp))
-                Box(modifier = Modifier.size(350.dp).align(Alignment.BottomEnd).background(vb.accentDim.copy(0.08f), CircleShape).offset(50.dp, 50.dp))
             }
         }
     ) { hazeState ->
@@ -63,112 +62,41 @@ fun WorkoutScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 80.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 70.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
                     StaggeredEntrance(0) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Box(modifier = Modifier.size(44.dp).neuroRaised(cornerRadius = 22.dp), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = vb.accent, modifier = Modifier.size(20.dp))
-                            }
-                            Column {
-                                HeadlineGradient("RUTINA DE HOY", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    uiState.currentWorkoutDay?.focus ?: "Activa tu cuerpo hoy",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = vb.textMuted
-                                )
-                            }
-                        }
+                        HeaderSection()
                     }
                 }
 
                 item {
                     StaggeredEntrance(1) {
-                        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Text("PLAN SEMANAL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
-                                IconButton(onClick = {}, modifier = Modifier.size(32.dp).neuroRaised(cornerRadius = 16.dp)) {
-                                    Icon(Icons.Filled.Settings, contentDescription = null, tint = ColorWhite, modifier = Modifier.size(14.dp))
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            WeekDaySelector(
-                                selectedDay = uiState.selectedDayIndex,
-                                completedDays = uiState.completedDays,
-                                routinesByDay = routinesByDay,
-                                onDaySelected = viewModel::selectDay
-                            )
-                        }
+                        WeekGridSelector(
+                            selectedDay = uiState.selectedDayIndex,
+                            completedDays = uiState.completedDays,
+                            routinesByDay = routinesByDay,
+                            onDaySelected = viewModel::selectDay
+                        )
                     }
                 }
 
                 item {
                     StaggeredEntrance(2) {
-                        LiquidGlassCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { if (!uiState.sessionRunning) viewModel.startSession() },
-                            accentGlow = uiState.sessionRunning,
+                        PrioritySessionCard(
+                            uiState = uiState,
+                            onStart = viewModel::startSession,
+                            onFinish = viewModel::finishSession,
                             hazeState = hazeState
-                        ) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("🎯 SESIÓN PRIORITARIA", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
-                                    Text(
-                                        uiState.currentWorkoutDay?.focus ?: "Personaliza tu sesión",
-                                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                                        color = ColorWhite
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        StatPillGlass("ESTADO", if (uiState.currentWorkoutDay != null) "ACTIVO" else "LIBRE")
-                                        StatPillGlass("EJERCICIOS", "${uiState.currentWorkoutDay?.exercises?.size ?: 0}")
-                                    }
-                                }
-                                if (uiState.sessionRunning) {
-                                    Box(modifier = Modifier.size(48.dp).neuroRaised(cornerRadius = 24.dp), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Filled.Timer, contentDescription = null, tint = vb.accent, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                            }
-                            
-                            if (uiState.sessionRunning) {
-                                Spacer(modifier = Modifier.height(20.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    GlowText(formatDuration(uiState.sessionElapsed), style = MonoMetric.copy(fontSize = 32.sp, fontWeight = FontWeight.Black))
-                                    Text("TIEMPO TOTAL", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                LiquidGlassButton(
-                                    text = "TERMINAR SESIÓN",
-                                    onClick = viewModel::finishSession,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    hazeState = hazeState
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.height(20.dp))
-                                LiquidGlassButton(
-                                    text = "EMPEZAR SESIÓN 🚀",
-                                    onClick = viewModel::startSession,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    style = LiquidButtonStyle.Primary,
-                                    hazeState = hazeState
-                                )
-                            }
-                        }
+                        )
                     }
                 }
 
                 if (uiState.sessionRunning) {
                     item {
-                        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("PROGRESO ACTUAL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                                Text("${uiState.dayProgress}%", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            LiquidProgressBar(progress = uiState.dayProgress / 100f)
+                        StaggeredEntrance(3) {
+                            SessionProgressCard(progress = uiState.dayProgress, hazeState = hazeState)
                         }
                     }
                 }
@@ -197,7 +125,7 @@ fun WorkoutScreen(
                         LiquidGlassButton(
                             text = "AÑADIR EJERCICIO",
                             onClick = { showLibraryDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                             style = LiquidButtonStyle.Secondary,
                             leadingIcon = { Icon(Icons.Default.Add, null, tint = vb.accent) },
                             hazeState = hazeState
@@ -249,47 +177,140 @@ fun WorkoutScreen(
 }
 
 @Composable
-private fun WeekDaySelector(
+private fun HeaderSection() {
+    val vb = LocalVoltBodyColors.current
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = vb.accent, modifier = Modifier.size(32.dp))
+            HeadlineGradient("RUTINA DE HOY", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black))
+        }
+        Text("💪 Prepárate para el máximo rendimiento", style = MaterialTheme.typography.labelSmall, color = vb.textMuted, modifier = Modifier.padding(start = 44.dp))
+    }
+}
+
+@Composable
+private fun WeekGridSelector(
     selectedDay: Int,
     completedDays: Set<Int>,
     routinesByDay: Array<WorkoutDay?>,
     onDaySelected: (Int) -> Unit
 ) {
     val vb = LocalVoltBodyColors.current
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, day ->
+    val days = listOf("LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM")
+    
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        days.forEachIndexed { index, day ->
             val isSelected = selectedDay == index
             val isCompleted = completedDays.contains(index)
             val hasRoutine = routinesByDay[index] != null
             
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Box(
                 modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(0.7f)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onDaySelected(index) }
-                    .background(if (isSelected) vb.accent.copy(0.15f) else Color.Transparent)
-                    .padding(8.dp)
+                    .background(
+                        when {
+                            isSelected -> vb.accent.copy(0.15f)
+                            hasRoutine -> vb.surfaceElevated.copy(0.3f)
+                            else -> Color.Transparent
+                        }
+                    )
+                    .border(
+                        1.dp,
+                        if (isSelected) vb.accent.copy(0.5f) else if (hasRoutine) vb.border else Color.Transparent,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable { onDaySelected(index) },
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    day,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                    color = if (isSelected) vb.accent else vb.textMuted
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        day,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Black),
+                        color = if (isSelected) vb.accent else if (hasRoutine) ColorWhite else vb.textMuted
+                    )
+                    if (isCompleted) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = vb.accent, modifier = Modifier.size(12.dp).padding(top = 4.dp))
+                    } else if (hasRoutine) {
+                        Box(modifier = Modifier.padding(top = 6.dp).size(4.dp).clip(CircleShape).background(vb.accent.copy(0.5f)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrioritySessionCard(
+    uiState: WorkoutUiState,
+    onStart: () -> Unit,
+    onFinish: () -> Unit,
+    hazeState: HazeState? = null
+) {
+    val vb = LocalVoltBodyColors.current
+    LiquidGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        accentGlow = uiState.sessionRunning,
+        hazeState = hazeState
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("🎯 SESIÓN PRIORITARIA", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.accent)
+                    Text(
+                        uiState.currentWorkoutDay?.focus ?: "DÍA DE DESCANSO",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                        color = ColorWhite
+                    )
+                }
+                if (uiState.sessionRunning) {
+                    GlowText(formatDuration(uiState.sessionElapsed), style = MonoMetric.copy(fontSize = 28.sp, fontWeight = FontWeight.Black))
+                } else {
+                    Icon(Icons.Default.Star, null, tint = vb.accent, modifier = Modifier.size(24.dp))
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatPillSmall("ESTADO", if (uiState.currentWorkoutDay != null) "ACTIVO" else "LIBRE", color = if (uiState.currentWorkoutDay != null) vb.accent else vb.textMuted)
+                StatPillSmall("SERIES", "${uiState.currentWorkoutDay?.exercises?.sumOf { it.sets } ?: 0}")
+                StatPillSmall("ETA", "45 MIN")
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            if (uiState.sessionRunning) {
+                LiquidGlassButton(
+                    text = "TERMINAR SESIÓN",
+                    onClick = onFinish,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = LiquidButtonStyle.Secondary,
+                    hazeState = hazeState
                 )
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                isCompleted -> vb.accent
-                                hasRoutine -> vb.textMuted.copy(0.3f)
-                                else -> Color.Transparent
-                            }
-                        )
+            } else if (uiState.currentWorkoutDay != null) {
+                LiquidGlassButton(
+                    text = "EMPEZAR SESIÓN 🚀",
+                    onClick = onStart,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = LiquidButtonStyle.Primary,
+                    hazeState = hazeState
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SessionProgressCard(progress: Int, hazeState: HazeState? = null) {
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("PROGRESO DE LA SESIÓN", style = UppercaseLabel.copy(fontSize = 10.sp), color = ColorWhite)
+            Text("$progress%", style = MonoMetric.copy(fontSize = 14.sp, fontWeight = FontWeight.Black), color = LocalVoltBodyColors.current.accent)
+        }
+        Spacer(Modifier.height(12.dp))
+        LiquidProgressBar(progress = progress / 100f, height = 8.dp)
     }
 }
 
@@ -311,45 +332,123 @@ private fun ExerciseCard(
         accentGlow = !isComplete && completedSets > 0,
         hazeState = hazeState
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(
-                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(vb.surfaceElevated.copy(0.4f)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isComplete) {
-                    Icon(Icons.Filled.CheckCircle, null, tint = vb.accent, modifier = Modifier.size(32.dp))
-                } else {
-                    Icon(Icons.Default.FitnessCenter, null, tint = vb.accent.copy(0.4f))
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Box(
+                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(vb.surfaceElevated.copy(0.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isComplete) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = vb.accent, modifier = Modifier.size(28.dp))
+                    } else {
+                        Icon(Icons.Default.Dumbbell, null, tint = if (completedSets > 0) vb.accent else vb.textMuted.copy(0.5f))
+                    }
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(exercise.muscleGroup?.uppercase() ?: "GENERAL", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.accent)
+                    Text(exercise.name.uppercase(), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = if (isComplete) vb.accent else ColorWhite)
+                    Text("${exercise.sets} series × ${exercise.reps}" + if (exercise.weight > 0) " · ${exercise.weight}kg" else "", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                }
+                
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.MoreVert, null, tint = vb.textMuted)
                 }
             }
             
-            Column(modifier = Modifier.weight(1f)) {
-                Text(exercise.name.uppercase(), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black), color = if (isComplete) vb.accent else ColorWhite)
-                Text("${exercise.sets} SERIES × ${exercise.reps}" + if (exercise.weight > 0) " · ${exercise.weight}KG" else "", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
-                if (completedSets > 0 && !isComplete) {
-                    Text("$completedSets/${exercise.sets} COMPLETADAS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 9.sp), color = vb.accent)
+            if (progressiveSuggestion != null) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(vb.accent.copy(0.1f)).padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = vb.accent, modifier = Modifier.size(14.dp))
+                    Text("SUGERIDO: ${progressiveSuggestion.suggestedWeight}KG", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
                 }
             }
             
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, null, tint = vb.textMuted)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LiquidProgressBar(progress = completedSets.toFloat() / exercise.sets.coerceAtLeast(1), modifier = Modifier.weight(1f), height = 4.dp)
+                Text("$completedSets/${exercise.sets}", style = MonoMetric.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold), color = if (isComplete) vb.accent else vb.textMuted)
             }
         }
-        
-        if (progressiveSuggestion != null) {
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(vb.accent.copy(0.1f)).padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = vb.accent, modifier = Modifier.size(14.dp))
-                Text("SUGERIDO: ${progressiveSuggestion.suggestedWeight}KG", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = vb.accent)
+    }
+}
+
+@Composable
+private fun StatPillSmall(label: String, value: String, color: Color = ColorWhite) {
+    val vb = LocalVoltBodyColors.current
+    Column(
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(vb.surfaceElevated.copy(0.3f)).padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(label, style = UppercaseLabel.copy(fontSize = 7.sp), color = vb.textMuted)
+        Text(value, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 10.sp), color = color)
+    }
+}
+
+@Composable
+private fun RestDayCard(hazeState: HazeState? = null) {
+    val vb = LocalVoltBodyColors.current
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("😴", fontSize = 64.sp)
+            Text("DÍA DE RECUPERACIÓN", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+            Text("El músculo crece cuando descansas. Aprovecha para hidratarte y dormir bien.", style = MaterialTheme.typography.bodyMedium, color = vb.textMuted, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun RestTimerCard(secondsLeft: Int, onSkip: () -> Unit, hazeState: HazeState? = null) {
+    val vb = LocalVoltBodyColors.current
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.size(40.dp).neuroRaised(cornerRadius = 20.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Timer, null, tint = vb.accent, modifier = Modifier.size(18.dp))
+                }
+                Column {
+                    Text("DESCANSO", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.accent)
+                    GlowText("${secondsLeft}S", style = MonoMetric.copy(fontSize = 22.sp, fontWeight = FontWeight.Black))
+                }
+            }
+            LiquidGlassButton(text = "SALTAR", onClick = onSkip, style = LiquidButtonStyle.Secondary, hazeState = hazeState)
+        }
+    }
+}
+
+@Composable
+private fun WorkoutSummaryShareCard(
+    day: WorkoutDay,
+    setsLogged: Int,
+    duration: Int,
+    streak: Int,
+    userName: String?,
+    hazeState: HazeState? = null
+) {
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("✨ ¡ENTRENO COMPLETADO!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+            Text(day.focus.uppercase(), style = UppercaseLabel.copy(fontSize = 10.sp), color = LocalVoltBodyColors.current.accent)
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                SummaryStat("SERIES", "$setsLogged")
+                SummaryStat("TIEMPO", formatDuration(duration))
+                SummaryStat("RACHA", "$streak")
             }
         }
-        
-        Spacer(Modifier.height(12.dp))
-        LiquidProgressBar(progress = completedSets.toFloat() / exercise.sets.coerceAtLeast(1), height = 4.dp)
+    }
+}
+
+@Composable
+private fun SummaryStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MonoMetric.copy(fontSize = 20.sp, fontWeight = FontWeight.Black), color = ColorWhite)
+        Text(label, style = UppercaseLabel.copy(fontSize = 8.sp), color = LocalVoltBodyColors.current.textMuted)
     }
 }
 
@@ -368,38 +467,38 @@ private fun LogSetDialog(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         LiquidGlassCard(
-            modifier = Modifier.fillMaxWidth(0.9f).wrapContentHeight(),
-            hazeState = null // Dialog handles its own surface
+            modifier = Modifier.fillMaxWidth(0.92f).wrapContentHeight(),
+            hazeState = null
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text("REGISTRAR ${exercise.name.uppercase()}", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = weight,
                         onValueChange = { weight = it },
-                        label = { Text("PESO (KG)") },
+                        label = { Text("PESO (KG)", style = MaterialTheme.typography.labelSmall) },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border, cursorColor = vb.accent)
                     )
                     OutlinedTextField(
                         value = reps,
                         onValueChange = { reps = it },
-                        label = { Text("REPS") },
+                        label = { Text("REPS", style = MaterialTheme.typography.labelSmall) },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border, cursorColor = vb.accent)
                     )
                 }
                 
                 OutlinedTextField(
                     value = sets,
                     onValueChange = { sets = it },
-                    label = { Text("Nº SERIES") },
+                    label = { Text("Nº SERIES", style = MaterialTheme.typography.labelSmall) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border)
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = vb.accent, unfocusedBorderColor = vb.border, cursorColor = vb.accent)
                 )
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -427,102 +526,38 @@ private fun ExerciseLibraryDialog(
     onDismiss: () -> Unit,
     onAdd: (ExerciseLibraryEntry) -> Unit
 ) {
+    val vb = LocalVoltBodyColors.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         LiquidGlassCard(
-            modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
+            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.85f),
             hazeState = null
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("BIBLIOTECA DE EJERCICIOS", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+                
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
                     itemsIndexed(library) { _, item ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(LocalVoltBodyColors.current.surface)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(vb.surfaceElevated.copy(0.4f))
                                 .clickable { onAdd(item) }
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(item.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
-                                Text(item.muscleGroup, style = MaterialTheme.typography.labelSmall, color = LocalVoltBodyColors.current.textMuted)
+                                Text(item.name.uppercase(), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                                Text(item.muscleGroup.uppercase(), style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.accent)
                             }
-                            Icon(Icons.Default.Add, null, tint = LocalVoltBodyColors.current.accent)
+                            Icon(Icons.Default.AddCircle, null, tint = vb.accent, modifier = Modifier.size(24.dp))
                         }
                     }
                 }
                 LiquidGlassButton(text = "CERRAR", onClick = onDismiss, style = LiquidButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
             }
         }
-    }
-}
-
-@Composable
-private fun RestDayCard(hazeState: HazeState? = null) {
-    val vb = LocalVoltBodyColors.current
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("😴", fontSize = 64.sp)
-            Text("DÍA DE RECUPERACIÓN", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-            Text("El músculo crece cuando descansas.", style = MaterialTheme.typography.bodyMedium, color = vb.textMuted, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-@Composable
-private fun RestTimerCard(secondsLeft: Int, onSkip: () -> Unit, hazeState: HazeState? = null) {
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("DESCANSO", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = LocalVoltBodyColors.current.accent)
-                GlowText("${secondsLeft}S", style = MonoMetric.copy(fontSize = 24.sp, fontWeight = FontWeight.Black))
-            }
-            LiquidGlassButton(text = "SALTAR", onClick = onSkip, style = LiquidButtonStyle.Secondary, hazeState = hazeState)
-        }
-    }
-}
-
-@Composable
-private fun StatPillGlass(label: String, value: String) {
-    val vb = LocalVoltBodyColors.current
-    Column(
-        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(vb.surfaceElevated.copy(0.3f)).padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Black), color = vb.textMuted)
-        Text(value, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-    }
-}
-
-@Composable
-private fun WorkoutSummaryShareCard(
-    day: WorkoutDay,
-    setsLogged: Int,
-    duration: Int,
-    streak: Int,
-    userName: String?,
-    hazeState: HazeState? = null
-) {
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("¡ENTRENO COMPLETADO!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-            Text(day.focus, style = MaterialTheme.typography.bodySmall, color = LocalVoltBodyColors.current.accent)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                SummaryStat("SERIES", "$setsLogged")
-                SummaryStat("TIEMPO", formatDuration(duration))
-                SummaryStat("RACHA", "$streak")
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryStat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MonoMetric.copy(fontSize = 18.sp, fontWeight = FontWeight.Black), color = ColorWhite)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = LocalVoltBodyColors.current.textMuted)
     }
 }
 

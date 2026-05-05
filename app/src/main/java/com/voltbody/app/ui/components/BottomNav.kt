@@ -33,12 +33,10 @@ import com.voltbody.app.ui.theme.*
 private data class NavItem(
     val tab: AppTab,
     val icon: ImageVector,
-    val iconSelected: ImageVector,
     val label: String
 )
 
-private val NavSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 300f)
-private val NavOffsetSpring = spring<Float>(dampingRatio = 0.7f, stiffness = 400f)
+private val NavSpring = spring<Float>(dampingRatio = 0.7f, stiffness = 400f)
 
 @Composable
 fun VoltBodyBottomNav(
@@ -50,64 +48,51 @@ fun VoltBodyBottomNav(
     val haptic = LocalHapticFeedback.current
 
     val leftItems = listOf(
-        NavItem(AppTab.WORKOUT, Icons.Outlined.FitnessCenter, Icons.Filled.FitnessCenter, "Rutina"),
-        NavItem(AppTab.DIET, Icons.Outlined.RestaurantMenu, Icons.Filled.RestaurantMenu, "Dieta"),
+        NavItem(AppTab.WORKOUT, Icons.Outlined.FitnessCenter, "Rutina"),
+        NavItem(AppTab.DIET, Icons.Outlined.RestaurantMenu, "Dieta"),
     )
     val rightItems = listOf(
-        NavItem(AppTab.CALENDAR, Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth, "Calendario"),
-        NavItem(AppTab.PROFILE, Icons.Outlined.Person, Icons.Filled.Person, "Perfil"),
+        NavItem(AppTab.CALENDAR, Icons.Outlined.CalendarMonth, "Calendario"),
+        NavItem(AppTab.PROFILE, Icons.Outlined.Person, "Perfil"),
     )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 20.dp),
+            .padding(horizontal = 8.dp)
+            .padding(bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
         contentAlignment = Alignment.Center
     ) {
-        // ── Liquid Glass NavBar Pill ─────────────────────────────────────────
+        // ── iOS Pill Nav ─────────────────────────────────────────
         Row(
             modifier = Modifier
-                .widthIn(max = 540.dp)
+                .widthIn(max = 520.dp)
                 .fillMaxWidth()
                 .shadow(
-                    elevation = 32.dp,
+                    elevation = 24.dp,
                     shape = CircleShape,
-                    ambientColor = vb.accent.copy(alpha = 0.15f),
-                    spotColor = Color.Black.copy(alpha = 0.4f)
+                    ambientColor = Color.Black.copy(alpha = 0.5f),
+                    spotColor = Color.Black.copy(alpha = 0.3f)
                 )
                 .clip(CircleShape)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            vb.surfaceElevated.copy(alpha = LiquidAlphaLevel0 + 0.05f),
-                            vb.surface.copy(alpha = LiquidAlphaLevel0)
+                            Color(0x0AFFFFFF),
+                            Color(0x00FFFFFF)
                         )
                     )
                 )
-                // Specular top highlight (iOS 26 glass effect)
-                .drawWithContent {
-                    drawContent()
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.08f),
-                                Color.Transparent
-                            ),
-                            endY = size.height * 0.4f
-                        )
-                    )
-                }
-                .border(1.dp, Color.White.copy(alpha = 0.10f), CircleShape)
-                .padding(6.dp),
+                .background(Color(0xF208080C)) // rgba(8, 8, 12, 0.96)
+                .border(1.dp, Color(0x1AFFFFFF), CircleShape) // rgba(255, 255, 255, 0.10)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             leftItems.forEach { item ->
                 NavButton(
                     item = item,
                     isActive = currentTab == item.tab,
-                    accentColor = vb.accent,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(item.tab)
@@ -118,20 +103,17 @@ fun VoltBodyBottomNav(
 
             CenterVoltButton(
                 isActive = currentTab == AppTab.HOME || currentTab == AppTab.AI_COACH,
-                isAiMode = currentTab == AppTab.AI_COACH,
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    val next = if (currentTab == AppTab.AI_COACH) AppTab.HOME else AppTab.AI_COACH
-                    onTabSelected(next)
+                    onTabSelected(AppTab.HOME)
                 },
-                modifier = Modifier.weight(1.4f)
+                modifier = Modifier.weight(1.8f)
             )
 
             rightItems.forEach { item ->
                 NavButton(
                     item = item,
                     isActive = currentTab == item.tab,
-                    accentColor = vb.accent,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(item.tab)
@@ -147,34 +129,22 @@ fun VoltBodyBottomNav(
 private fun NavButton(
     item: NavItem,
     isActive: Boolean,
-    accentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val vb = LocalVoltBodyColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val iconScale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.90f
-            isActive -> 1.1f
-            else -> 1f
-        },
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 1.1f else 1f,
         animationSpec = NavSpring,
         label = "icon_scale"
-    )
-    
-    val bgAlpha by animateFloatAsState(
-        targetValue = if (isActive) 0.15f else 0f,
-        animationSpec = NavSpring,
-        label = "bg_alpha"
     )
 
     Column(
         modifier = modifier
-            .height(60.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .pulseOnPress(isPressed, cornerRadius = 18.dp)
+            .height(52.dp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -184,57 +154,43 @@ private fun NavButton(
         verticalArrangement = Arrangement.Center
     ) {
         Box(contentAlignment = Alignment.Center) {
-            // Liquid Radial Glow (behind active icon)
             if (isActive) {
+                // Tab switch glow
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(40.dp)
                         .background(
                             Brush.radialGradient(
-                                colors = listOf(accentColor.copy(alpha = 0.15f), Color.Transparent)
+                                colors = listOf(vb.accent.copy(alpha = 0.2f), Color.Transparent)
                             )
                         )
                 )
             }
             
             Icon(
-                imageVector = if (isActive) item.iconSelected else item.icon,
+                imageVector = item.icon,
                 contentDescription = item.label,
-                tint = if (isActive) accentColor else ColorTextMuted,
+                tint = if (isActive) vb.accent else Color(0xFFAEB5C1), // #aeb5c1
                 modifier = Modifier
-                    .size(22.dp)
-                    .graphicsLayer {
-                        scaleX = iconScale
-                        scaleY = iconScale
-                    }
+                    .size(18.dp) // Close to web's 16
+                    .scale(scale)
             )
         }
         
         AnimatedVisibility(
             visible = isActive,
-            enter = fadeIn(tween(250)) + expandVertically(expandFrom = Alignment.Top),
-            exit = fadeOut(tween(200)) + shrinkVertically(shrinkTowards = Alignment.Top)
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    ),
-                    color = accentColor,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-                // Liquid Dot Indicator
-                Box(
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .size(width = 12.dp, height = 3.dp)
-                        .clip(CircleShape)
-                        .background(accentColor)
-                )
-            }
+            Text(
+                text = item.label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = vb.accent,
+                modifier = Modifier.padding(top = 1.dp)
+            )
         }
     }
 }
@@ -242,7 +198,6 @@ private fun NavButton(
 @Composable
 fun CenterVoltButton(
     isActive: Boolean,
-    isAiMode: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -251,42 +206,15 @@ fun CenterVoltButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.95f
-            else -> 1f
-        },
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = NavSpring,
         label = "center_scale"
-    )
-    
-    val bgAlpha by animateFloatAsState(
-        targetValue = if (isActive) 0.15f else 0f,
-        animationSpec = NavSpring,
-        label = "glow_alpha"
     )
 
     Box(
         modifier = modifier
-            .height(60.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .clip(CircleShape)
-            .background(
-                if (isActive) vb.accent.copy(alpha = 0.12f) else Color.Transparent
-            )
-            .drawWithContent {
-                drawContent()
-                if (isActive) {
-                    // Accent border glow for center button
-                    drawCircle(
-                        color = vb.accent.copy(alpha = 0.2f),
-                        radius = size.minDimension / 2,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                    )
-                }
-            }
+            .height(52.dp)
+            .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -297,61 +225,27 @@ fun CenterVoltButton(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 12.dp)
+            modifier = Modifier.padding(horizontal = 4.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                // Spinning accent ring when active (Center button special)
-                if (isActive) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "volt_spin")
-                    val angle by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing)),
-                        label = "spin"
-                    )
-                    
-                    Canvas(modifier = Modifier.size(32.dp)) {
-                        drawArc(
-                            color = vb.accent,
-                            startAngle = angle,
-                            sweepAngle = 90f,
-                            useCenter = false,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = 1.5.dp.toPx(),
-                                cap = StrokeCap.Round
-                            )
-                        )
-                    }
-                }
-
-                AnimatedContent(
-                    targetState = isAiMode,
-                    transitionSpec = {
-                        fadeIn(tween(250)) + scaleIn(initialScale = 0.7f) togetherWith
-                            fadeOut(tween(200)) + scaleOut(targetScale = 0.7f)
-                    },
-                    label = "center_icon"
-                ) { aiMode ->
-                    Icon(
-                        imageVector = if (aiMode) Icons.Filled.SmartToy else Icons.Filled.Bolt,
-                        contentDescription = if (aiMode) "Coach IA" else "Inicio",
-                        tint = if (isActive) vb.accent else vb.textMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
+            Icon(
+                imageVector = Icons.Filled.Bolt,
+                contentDescription = "Inicio",
+                tint = if (isActive) Color(0xFFFBBF24) else Color(0xFF6B7280),
+                modifier = Modifier.size(22.dp)
+            )
             
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             
             Text(
-                text = if (isAiMode) "COACH" else "VOLTBODY",
+                text = "VOLTBODY",
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.5.sp,
-                    fontSize = 11.sp
+                    fontSize = 13.sp
                 ),
-                color = if (isActive) vb.accent else vb.textMuted
+                color = if (isActive) vb.accent else Color(0xFF9CA3AF)
             )
         }
     }
 }
+
