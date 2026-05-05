@@ -167,9 +167,9 @@ fun LiquidGlassCard(
             // Inner Highlight (Inner Border)
             drawRoundRect(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.White.copy(0.12f), Color.Transparent),
+                    colors = listOf(Color.White.copy(0.18f), Color.Transparent),
                     startY = 0f,
-                    endY = 100f
+                    endY = 120f
                 ),
                 topLeft = Offset.Zero,
                 size = size,

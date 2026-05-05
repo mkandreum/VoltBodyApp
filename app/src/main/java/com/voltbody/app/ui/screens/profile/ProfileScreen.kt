@@ -178,13 +178,21 @@ fun ProfileScreen(
                 }
             }
 
-            // 6. Weight Chart Placeholder
+            // 6. Weight Chart (Matching web parity)
             item {
                 StaggeredEntrance(5) {
                     LiquidGlassCard(hazeState = hazeState) {
-                        Text("⚖️ REGISTRO DE PESO SEMANAL", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
-                        Spacer(Modifier.height(16.dp))
-                        Box(modifier = Modifier.fillMaxWidth().height(100.dp).background(vb.accent.copy(0.05f), RoundedCornerShape(12.dp)))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚖️ REGISTRO DE PESO SEMANAL", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+                            Text("OBJETIVO: 75KG", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = vb.accent)
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        VoltBodyAreaChart(
+                            data = listOf(82f, 81.5f, 82.2f, 80.8f, 79.5f, 79.2f, 78.8f),
+                            modifier = Modifier.fillMaxWidth().height(100.dp),
+                            lineColor = vb.accent,
+                            fillColor = vb.accent.copy(alpha = 0.1f)
+                        )
                     }
                 }
             }

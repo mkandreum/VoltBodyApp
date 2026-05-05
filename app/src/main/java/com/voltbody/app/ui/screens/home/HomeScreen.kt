@@ -264,7 +264,7 @@ private fun XpProgressCard(
 @Composable
 private fun BentoGrid(state: HomeState, hazeState: HazeState? = null) {
     val vb = LocalVoltBodyColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Large Consistency Card
         LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -273,16 +273,17 @@ private fun BentoGrid(state: HomeState, hazeState: HazeState? = null) {
                     Text("85%", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
                     Text("🔥 ${state.streakDays} DÍAS EN RACHA", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
                 }
-                Icon(Icons.Default.Activity, null, tint = vb.accent)
+                Icon(Icons.Default.QueryStats, null, tint = vb.accent)
             }
-            Spacer(Modifier.height(16.dp))
-            // Minimal chart placeholder (matching web's AreaChart style)
-            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(vb.accent.copy(0.05f), RoundedCornerShape(8.dp))) {
-                // We can add a real chart component here if available
-            }
+            Spacer(Modifier.height(24.dp))
+            // High-fidelity area chart matching web
+            VoltBodyAreaChart(
+                data = listOf(0.4f, 0.7f, 0.5f, 0.8f, 0.9f, 0.6f, 0.85f),
+                modifier = Modifier.fillMaxWidth().height(80.dp)
+            )
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BentoSmallCard(
                 title = "OBJETIVO CALÓRICO",
                 value = "${state.weeklyTarget * 500}", // Example
@@ -345,7 +346,17 @@ private fun TimelineItem(time: String, title: String, done: Boolean) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
             Text(time, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = if (done) vb.accent else vb.textMuted)
         }
-        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(if (done) vb.accent else vb.border.copy(0.5f)))
+        
+        // Glowing dot matching web
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(if (done) vb.accent else vb.surfaceElevated.copy(0.8f))
+                .then(if (done) Modifier.shadow(8.dp, CircleShape, spotColor = vb.accent) else Modifier)
+                .border(1.dp, if (done) vb.accent.copy(0.5f) else vb.border.copy(0.2f), CircleShape)
+        )
+        
         Text(
             title,
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = if (done) FontWeight.Black else FontWeight.Medium),
