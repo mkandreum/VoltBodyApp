@@ -84,24 +84,37 @@ fun LiquidGlassCard(
             scaleY = scale
         }
         .shadow(
-            elevation = if (accentGlow) 20.dp else 12.dp,
+            elevation = if (accentGlow) 24.dp else 12.dp,
             shape = AppCardShape,
-            ambientColor = if (accentGlow) vb.accent.copy(alpha = 0.3f) else Color.Black,
-            spotColor = if (accentGlow) vb.accent.copy(alpha = 0.25f) else Color.Black
+            ambientColor = if (accentGlow) vb.accent.copy(alpha = 0.4f) else Color.Black,
+            spotColor = if (accentGlow) vb.accent.copy(alpha = 0.3f) else Color.Black
         )
         .clip(AppCardShape)
         .then(if (hazeState != null) Modifier.hazeChild(state = hazeState) else Modifier)
-        .background(vb.surfaceElevated.copy(0.3f))
+        .background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    vb.surfaceElevated.copy(alpha = 0.25f),
+                    vb.surfaceElevated.copy(alpha = 0.15f)
+                )
+            )
+        )
         .drawWithContent {
             drawContent()
+            // Inner Highlight (Inner Border)
             drawRoundRect(
-                color = Color.White.copy(alpha = 0.08f),
-                topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
-                size = Size(size.width - 2.dp.toPx(), 1.dp.toPx()),
-                cornerRadius = CornerRadius(1.dp.toPx())
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.White.copy(0.12f), Color.Transparent),
+                    startY = 0f,
+                    endY = 100f
+                ),
+                topLeft = Offset.Zero,
+                size = size,
+                cornerRadius = CornerRadius(24.dp.toPx()),
+                style = Stroke(width = 1.dp.toPx())
             )
         }
-        .border(1.dp, vb.border.copy(0.5f), AppCardShape)
+        .border(1.dp, vb.border.copy(0.4f), AppCardShape)
 
     if (onClick != null) {
         Surface(

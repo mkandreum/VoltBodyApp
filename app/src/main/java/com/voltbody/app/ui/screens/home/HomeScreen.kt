@@ -5,12 +5,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Quote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.voltbody.app.ui.components.*
 import com.voltbody.app.ui.theme.*
+import com.voltbody.app.util.HapticType
+import com.voltbody.app.util.rememberHaptic
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -34,54 +35,120 @@ fun HomeScreen(
 ) {
     val vb = LocalVoltBodyColors.current
     val state by viewModel.state.collectAsState()
+    val haptic = rememberHaptic()
 
     LiquidGlassScaffold(
         background = {
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.size(500.dp).align(Alignment.TopEnd).background(vb.accent.copy(0.05f), CircleShape).offset(100.dp, (-150).dp))
-                Box(modifier = Modifier.size(300.dp).align(Alignment.CenterStart).background(ColorInfo.copy(0.03f), CircleShape).offset((-100).dp, 50.dp))
+                // Background blobs for depth (matching web's subtle glow)
+                Box(
+                    modifier = Modifier
+                        .size(500.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 100.dp, y = (-150).dp)
+                        .background(vb.accent.copy(alpha = 0.08f), CircleShape)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(300.dp)
+                        .align(Alignment.CenterStart)
+                        .offset(x = (-100).dp, y = 50.dp)
+                        .background(ColorInfo.copy(alpha = 0.05f), CircleShape)
+                )
             }
         }
     ) { hazeState ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 70.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 60.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            // 1. Header (Greeting + Streak)
             item {
-                HomeHeader(name = state.userName, onProfileClick = onNavigateToProfile)
-            }
-
-            item {
-                HeroMotivationCard(
-                    phrase = state.motivationPhrase,
-                    workout = state.todayWorkout,
-                    progress = 0f, // From state if available, or calc
-                    onStart = { state.todayWorkout?.let { onNavigateToWorkout(it.id) } },
-                    hazeState = hazeState
+                HomeHeader(
+                    name = state.userName,
+                    progress = state.reportProgress, // Using reportProgress as a placeholder for session % if needed
+                    onProfileClick = onNavigateToProfile
                 )
             }
 
-            item {
-                BentoGrid(state = state, hazeState = hazeState, onNavigateToDiet = onNavigateToDiet)
+            // 2. Daily Quote (Matching Web)
+            if (state.motivationPhrase.isNotEmpty()) {
+                item {
+                    StaggeredEntrance(1) {
+                        LiquidGlassCard(hazeState = hazeState, accentGlow = true) {
+                            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(Icons.Outlined.Quote, null, tint = vb.accent, modifier = Modifier.size(20.dp))
+                                Text(
+                                    state.motivationPhrase,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = vb.accent
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
+            // 3. Hero Card (Today's Conquering)
             item {
-                LevelProgressCard(
-                    current = state.xpCurrent,
-                    target = state.xpToNext,
-                    level = state.xpLevel,
-                    hazeState = hazeState
-                )
+                StaggeredEntrance(2) {
+                    HeroCard(
+                        workout = state.todayWorkout,
+                        streak = state.streakDays,
+                        level = state.xpLevel,
+                        xpInLevel = state.xpCurrent,
+                        xpPerLevel = state.xpToNext,
+                        progress = state.todayLogs.toFloat() / (state.todayWorkout?.exerciseCount?.coerceAtLeast(1) ?: 1),
+                        onStart = {
+                            haptic.perform(HapticType.TICK)
+                            state.todayWorkout?.let { onNavigateToWorkout(it.id) }
+                        },
+                        onOptimize = onNavigateToDiet,
+                        hazeState = hazeState
+                    )
+                }
             }
 
-            item { Spacer(modifier = Modifier.height(80.dp)) }
+            // 4. XP Progress Bar (Matching Web style)
+            item {
+                StaggeredEntrance(3) {
+                    XpProgressCard(
+                        level = state.xpLevel,
+                        currentXP = state.xpCurrent,
+                        targetXP = state.xpToNext,
+                        totalXP = state.totalXP,
+                        streak = state.streakDays,
+                        logsCount = state.todayLogs, // Using todayLogs as an example
+                        hazeState = hazeState
+                    )
+                }
+            }
+
+            // 5. Bento Grid (Matching Web exactly)
+            item {
+                StaggeredEntrance(4) {
+                    BentoGrid(state = state, hazeState = hazeState)
+                }
+            }
+
+            // 6. Timeline (Coming from web's timelineItems)
+            item {
+                StaggeredEntrance(5) {
+                    TimelineSection(state = state, hazeState = hazeState)
+                }
+            }
+
+            item { Spacer(Modifier.height(100.dp)) }
         }
     }
 }
 
 @Composable
-private fun HomeHeader(name: String, onProfileClick: () -> Unit) {
+private fun HomeHeader(name: String, progress: Int, onProfileClick: () -> Unit) {
     val vb = LocalVoltBodyColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -89,58 +156,167 @@ private fun HomeHeader(name: String, onProfileClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text("HOLA,", style = UppercaseLabel.copy(fontSize = 12.sp), color = vb.textMuted)
-            Text(name.uppercase().ifEmpty { "GUERRERO" }, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+            Text("⚡ VOLTBODY OS", style = UppercaseLabel.copy(fontSize = 11.sp, letterSpacing = 2.sp), color = vb.textMuted)
+            Text(
+                if (name.isNotEmpty()) "👋 HOLA, ${name.uppercase()}" else "🦁 MODO BESTIA",
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                color = ColorWhite
+            )
+            Text(
+                "HOY · $progress% SESIÓN",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = vb.textMuted
+            )
         }
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
+                .size(48.dp)
+                .clip(RoundedCornerShape(16.dp))
                 .background(vb.surfaceElevated.copy(0.3f))
-                .border(1.dp, vb.border.copy(0.5f), CircleShape)
+                .border(1.dp, vb.border.copy(0.5f), RoundedCornerShape(16.dp))
                 .clickable { onProfileClick() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Notifications, null, tint = ColorWhite, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Flame, null, tint = vb.accent, modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable
-private fun HeroMotivationCard(
-    phrase: String,
+private fun HeroCard(
     workout: TodayWorkoutInfo?,
+    streak: Int,
+    level: Int,
+    xpInLevel: Int,
+    xpPerLevel: Int,
     progress: Float,
     onStart: () -> Unit,
+    onOptimize: () -> Unit,
     hazeState: HazeState? = null
 ) {
     val vb = LocalVoltBodyColors.current
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), accentGlow = workout != null, hazeState = hazeState) {
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), accentGlow = true, hazeState = hazeState) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("🔥 MODO GUERRERO", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.accent)
+                Text("🏆 HOY CONQUISTAS", style = UppercaseLabel.copy(fontSize = 10.sp, letterSpacing = 1.5.sp), color = vb.textMuted)
+                Spacer(Modifier.height(4.dp))
+                HeadlineGradient(
+                    text = (workout?.name ?: "RECUPERACIÓN ACTIVA").uppercase(),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    if (workout != null) "HOY: ${workout.name.uppercase()}" else "HOY: DESCANSO",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                    color = ColorWhite
+                    if (workout != null) "⚡ ${workout.estimatedMinutes} MIN · ${workout.exerciseCount} EJERCICIOS" else "ACTIVA UNA SESIÓN RÁPIDA",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = vb.textMuted
                 )
             }
-            VoltBodyCircularProgress(value = progress * 100, size = 56.dp)
+            VoltBodyCircularProgress(value = progress * 100, size = 68.dp)
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            phrase.ifEmpty { "La disciplina es el puente entre tus metas y tus logros." },
-            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-            color = vb.textMuted
-        )
+        Spacer(Modifier.height(20.dp))
         
-        if (workout != null) {
-            Spacer(modifier = Modifier.height(24.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(modifier = Modifier.weight(1f).neuroRaised(12.dp).padding(10.dp)) {
+                Column {
+                    Text("$streak🔥", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                    Text("RACHA DÍAS", style = UppercaseLabel.copy(fontSize = 9.sp), color = vb.textMuted)
+                }
+            }
+            Box(modifier = Modifier.weight(1f).neuroRaised(12.dp).padding(10.dp)) {
+                Column {
+                    Text("NV. $level⚡", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                    Text("$xpInLevel/$xpPerLevel XP", style = UppercaseLabel.copy(fontSize = 9.sp), color = vb.textMuted)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LiquidGlassButton(
-                text = "EMPEZAR ENTRENAMIENTO",
+                text = "EMPEZAR SESIÓN",
                 onClick = onStart,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1.2f),
+                style = LiquidButtonStyle.Primary,
+                leadingIcon = { Icon(Icons.Default.Zap, null, size = 16.dp) }
+            )
+            LiquidGlassButton(
+                text = "DIETA 🍽️",
+                onClick = onOptimize,
+                modifier = Modifier.weight(0.8f),
+                style = LiquidButtonStyle.Secondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun XpProgressCard(
+    level: Int,
+    currentXP: Int,
+    targetXP: Int,
+    totalXP: Int,
+    streak: Int,
+    logsCount: Int,
+    hazeState: HazeState? = null
+) {
+    val vb = LocalVoltBodyColors.current
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Zap, null, tint = vb.accent, modifier = Modifier.size(14.dp))
+                Text("NIVEL $level", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                Text("· $totalXP XP TOTAL", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = vb.textMuted)
+            }
+            Text("$currentXP/$targetXP XP", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = vb.textMuted)
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        LiquidProgressBar(progress = currentXP.toFloat() / targetXP.coerceAtLeast(1), height = 6.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("🔥 $streak DÍAS RACHA", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = vb.textMuted)
+            Text("💪 $logsCount SERIES HOY", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = vb.textMuted)
+        }
+    }
+}
+
+@Composable
+private fun BentoGrid(state: HomeState, hazeState: HazeState? = null) {
+    val vb = LocalVoltBodyColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Large Consistency Card
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("📊 CONSISTENCIA SEMANAL", style = UppercaseLabel.copy(fontSize = 9.sp), color = vb.textMuted)
+                    Text("85%", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+                    Text("🔥 ${state.streakDays} DÍAS EN RACHA", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+                }
+                Icon(Icons.Default.Activity, null, tint = vb.accent)
+            }
+            Spacer(Modifier.height(16.dp))
+            // Minimal chart placeholder (matching web's AreaChart style)
+            Box(modifier = Modifier.fillMaxWidth().height(60.dp).background(vb.accent.copy(0.05f), RoundedCornerShape(8.dp))) {
+                // We can add a real chart component here if available
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            BentoSmallCard(
+                title = "OBJETIVO CALÓRICO",
+                value = "${state.weeklyTarget * 500}", // Example
+                subtitle = "🍽️ ${state.weeklyTarget} COMIDAS",
+                icon = Icons.Default.Flame,
+                modifier = Modifier.weight(1f),
+                hazeState = hazeState
+            )
+            BentoSmallCard(
+                title = "RECUPERACIÓN",
+                value = "92%",
+                subtitle = "🌙 ESTADO DE DESCANSO",
+                icon = Icons.Default.Moonlight,
+                modifier = Modifier.weight(1f),
                 hazeState = hazeState
             )
         }
@@ -148,77 +324,52 @@ private fun HeroMotivationCard(
 }
 
 @Composable
-private fun BentoGrid(
-    state: HomeState,
-    hazeState: HazeState? = null,
-    onNavigateToDiet: () -> Unit
+private fun BentoSmallCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = null
 ) {
     val vb = LocalVoltBodyColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().height(160.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            LiquidGlassCard(modifier = Modifier.weight(0.4f).fillMaxHeight(), hazeState = hazeState) {
-                Icon(Icons.Default.LocalDrink, null, tint = ColorInfo, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.weight(1f))
-                Text("2.4L", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                Text("HIDRATACIÓN", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
-            }
-            LiquidGlassCard(modifier = Modifier.weight(0.6f).fillMaxHeight(), hazeState = hazeState) {
-                Text("CONSISTENCIA", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val maxVol = state.dailyVolumeKg.maxOrNull()?.coerceAtLeast(1f) ?: 1f
-                    state.dailyVolumeKg.takeLast(7).forEach { vol ->
-                        val h = (vol / maxVol).coerceAtLeast(0.1f)
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(4.dp)).background(if (vol > 0) vb.accent else vb.textMuted.copy(0.2f)))
-                    }
-                }
-            }
-        }
+    LiquidGlassCard(modifier = modifier, hazeState = hazeState) {
+        Icon(icon, null, tint = vb.accent, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
+        Text(title, style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
+        Text(subtitle, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = vb.textMuted)
+    }
+}
+
+@Composable
+private fun TimelineSection(state: HomeState, hazeState: HazeState? = null) {
+    val vb = LocalVoltBodyColors.current
+    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
+        Text("📅 LÍNEA DE TIEMPO", style = UppercaseLabel.copy(fontSize = 10.sp), color = vb.textMuted)
+        Spacer(Modifier.height(20.dp))
         
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState, onClick = onNavigateToDiet) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(vb.accent.copy(0.1f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Restaurant, null, tint = vb.accent)
-                }
-                Column {
-                    Text("PRÓXIMA COMIDA", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
-                    Text("POLLO CON ARROZ", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = ColorWhite)
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(Icons.Default.ChevronRight, null, tint = vb.textMuted)
-            }
-        }
-        
-        Row(modifier = Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            LiquidGlassCard(modifier = Modifier.weight(1f).fillMaxHeight(), hazeState = hazeState) {
-                Text("PESO", style = UppercaseLabel.copy(fontSize = 8.sp), color = vb.textMuted)
-                Spacer(modifier = Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("78.4", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                    Text("KG", style = MaterialTheme.typography.labelSmall, color = vb.textMuted, modifier = Modifier.padding(bottom = 4.dp))
-                }
-            }
-            LiquidGlassCard(modifier = Modifier.weight(1f).fillMaxHeight(), hazeState = hazeState, accentGlow = true) {
-                Icon(Icons.Default.AutoAwesome, null, tint = vb.accent, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.weight(1f))
-                Text("COACH IA", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-                Text("ANALIZANDO...", style = UppercaseLabel.copy(fontSize = 7.sp), color = vb.accent)
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            TimelineItem(time = "08:00", title = "🥣 DESAYUNO DE ARRANQUE", done = true)
+            TimelineItem(time = "ENTRENO", title = "💪 ${state.todayWorkout?.name ?: "SESIÓN RÁPIDA"}", done = state.todayLogs > 0)
+            TimelineItem(time = "14:00", title = "🍗 COMIDA PRINCIPAL", done = false)
+            TimelineItem(time = "PROGRESO", title = "📸 SUBIR FOTO DEL DÍA", done = false)
         }
     }
 }
 
 @Composable
-private fun LevelProgressCard(current: Int, target: Int, level: Int, hazeState: HazeState? = null) {
+private fun TimelineItem(time: String, title: String, done: Boolean) {
     val vb = LocalVoltBodyColors.current
-    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), hazeState = hazeState) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("NIVEL $level", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black), color = ColorWhite)
-            Text("$current / $target XP", style = MonoMetric.copy(fontSize = 11.sp), color = vb.accent)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
+            Text(time, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = if (done) vb.accent else vb.textMuted)
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        LiquidProgressBar(progress = if (target > 0) current.toFloat() / target else 0f)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Te faltan ${target - current} XP para el nivel ${level + 1}", style = MaterialTheme.typography.labelSmall, color = vb.textMuted)
+        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(if (done) vb.accent else vb.border.copy(0.5f)))
+        Text(
+            title,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = if (done) FontWeight.Black else FontWeight.Medium),
+            color = if (done) ColorWhite else vb.textMuted
+        )
     }
 }
