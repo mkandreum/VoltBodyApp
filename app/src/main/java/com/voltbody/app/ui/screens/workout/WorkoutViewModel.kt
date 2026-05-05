@@ -1,0 +1,271 @@
+package com.voltbody.app.ui.screens.workout
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.voltbody.app.domain.model.*
+import com.voltbody.app.domain.usecase.*
+import com.voltbody.app.data.repository.AppRepository
+import com.voltbody.app.data.remote.ExerciseLibrary
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.Instant
+import javax.inject.Inject
+
+data class WorkoutUiState(
+    val routine: List<WorkoutDay> = emptyList(),
+    val selectedDayIndex: Int = 0,
+    val currentWorkoutDay: WorkoutDay? = null,
+    val completedDays: Set<Int> = emptySet(),
+    val completedSets: Map<String, Int> = emptyMap(),
+    val dayProgress: Int = 0,
+    val sessionRunning: Boolean = false,
+    val sessionElapsed: Int = 0,
+    val restSecondsLeft: Int = 0,
+    val logSheetExercise: Exercise? = null,
+    val logSheetHistory: List<ExerciseSession> = emptyList(),
+    val lastWeightForExercise: Map<String, Float> = emptyMap(),
+    val progressiveSuggestions: Map<String, ProgressiveSuggestion> = emptyMap(),
+    val workoutComplete: Boolean = false,
+    val todaySetsLogged: Int = 0,
+    val currentStreak: Int = 0,
+    val userName: String? = null,
+    val exerciseLibrary: List<ExerciseLibraryEntry> = emptyList()
+)
+
+@HiltViewModel
+class WorkoutViewModel @Inject constructor(
+    private val appRepository: AppRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(WorkoutUiState())
+    val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
+
+    private val _selectedDayIndex = MutableStateFlow(getMondayFirstIndex(LocalDate.now()))
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private var sessionTimerJob: Job? = null
+    private var restTimerJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            combine(
+                appRepository.routine,
+                appRepository.workoutLogs,
+                appRepository.user,
+                _selectedDayIndex
+            ) { routine, logs, user, selectedDay ->
+                val today = LocalDate.now()
+                val routineByDay = mapRoutineByWeekday(routine)
+
+                val completedDays = mutableSetOf<Int>()
+                routineByDay.forEachIndexed { i, day ->
+                    if (day != null) {
+                        val dayDate = today.with(java.time.DayOfWeek.MONDAY).plusDays(i.toLong())
+                        val dayStr = dayDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        val dayLogs = logs.filter { it.date.take(10) == dayStr }
+                        val completedSets = day.exercises.sumOf { ex ->
+                            dayLogs.count { it.exerciseId == ex.id }
+                        }
+                        if (completedSets >= day.exercises.sumOf { it.sets } * 0.8) {
+                            completedDays.add(i)
+                        }
+                    }
+                }
+
+                val currentDay = routineByDay[selectedDay]
+                val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                val todayLogs = logs.filter { it.date.take(10) == todayStr }
+
+                val completedSetsMap = currentDay?.exercises?.associate { ex ->
+                    ex.id to todayLogs.count { it.exerciseId == ex.id }.coerceAtMost(ex.sets)
+                } ?: emptyMap()
+
+                val totalSets = currentDay?.exercises?.sumOf { it.sets } ?: 0
+                val doneSets = completedSetsMap.values.sum()
+                val dayProgress = if (totalSets > 0) (doneSets * 100 / totalSets) else 0
+
+                val lastWeightMap = currentDay?.exercises?.associate { ex ->
+                    ex.id to (logs.filter { it.exerciseId == ex.id }.maxOfOrNull { it.weight } ?: ex.weight)
+                } ?: emptyMap()
+
+                val suggestions = currentDay?.exercises?.mapNotNull { ex ->
+                    getProgressiveSuggestion(ex.id, logs)?.let { ex.id to it }
+                }?.toMap() ?: emptyMap()
+
+                val workoutComplete = dayProgress >= 80 && todayLogs.isNotEmpty()
+                val todaySetsLogged = todayLogs.size
+                val streak = computeSmartStreak(logs, routine)
+
+                _uiState.value.copy(
+                    routine = routine,
+                    selectedDayIndex = selectedDay,
+                    currentWorkoutDay = currentDay,
+                    completedDays = completedDays,
+                    completedSets = completedSetsMap,
+                    dayProgress = dayProgress,
+                    lastWeightForExercise = lastWeightMap,
+                    progressiveSuggestions = suggestions,
+                    workoutComplete = workoutComplete || _uiState.value.workoutComplete,
+                    todaySetsLogged = todaySetsLogged,
+                    currentStreak = streak,
+                    userName = user?.name,
+                    exerciseLibrary = ExerciseLibrary.ITEMS
+                )
+            }.collect { state -> _uiState.value = state }
+        }
+    }
+
+    fun selectDay(dayIndex: Int) {
+        _selectedDayIndex.value = dayIndex
+    }
+
+    fun startSession() {
+        if (_uiState.value.sessionRunning) return
+        _uiState.value = _uiState.value.copy(sessionRunning = true, sessionElapsed = 0, workoutComplete = false)
+        sessionTimerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _uiState.value = _uiState.value.copy(sessionElapsed = _uiState.value.sessionElapsed + 1)
+            }
+        }
+    }
+
+    fun finishSession() {
+        sessionTimerJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            sessionRunning = false,
+            workoutComplete = true
+        )
+    }
+
+    fun openLogSheet(exercise: Exercise) {
+        val history = getExerciseHistory(exercise.id, appRepository.workoutLogs.value)
+        _uiState.value = _uiState.value.copy(
+            logSheetExercise = exercise,
+            logSheetHistory = history
+        )
+    }
+
+    fun closeLogSheet() {
+        _uiState.value = _uiState.value.copy(
+            logSheetExercise = null,
+            logSheetHistory = emptyList()
+        )
+    }
+
+    fun logSet(exercise: Exercise, weight: Float, reps: Int, rir: Int?, sets: Int, duration: Int?, rpe: Int?) {
+        val now = Instant.now().toString()
+        repeat(sets) {
+            appRepository.addWorkoutLog(
+                WorkoutLog(
+                    date = now,
+                    exerciseId = exercise.id,
+                    weight = weight,
+                    reps = reps,
+                    duration = duration,
+                    rpe = rpe,
+                    rir = rir
+                )
+            )
+        }
+        closeLogSheet()
+        startRestTimer(90)
+    }
+
+    private fun startRestTimer(seconds: Int) {
+        restTimerJob?.cancel()
+        _uiState.value = _uiState.value.copy(restSecondsLeft = seconds)
+        restTimerJob = viewModelScope.launch {
+            for (remaining in seconds downTo 0) {
+                _uiState.value = _uiState.value.copy(restSecondsLeft = remaining)
+                if (remaining == 0) break
+                delay(1000)
+            }
+        }
+    }
+
+    fun skipRest() {
+        restTimerJob?.cancel()
+        _uiState.value = _uiState.value.copy(restSecondsLeft = 0)
+    }
+
+    fun moveDayUp(index: Int) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (index > 0 && index < currentRoutine.size) {
+            val temp = currentRoutine[index]
+            currentRoutine[index] = currentRoutine[index - 1]
+            currentRoutine[index - 1] = temp
+            appRepository.setRoutine(currentRoutine)
+            
+            if (_uiState.value.selectedDayIndex == index) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index - 1)
+            } else if (_uiState.value.selectedDayIndex == index - 1) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index)
+            }
+        }
+    }
+
+    fun moveDayDown(index: Int) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (index >= 0 && index < currentRoutine.size - 1) {
+            val temp = currentRoutine[index]
+            currentRoutine[index] = currentRoutine[index + 1]
+            currentRoutine[index + 1] = temp
+            appRepository.setRoutine(currentRoutine)
+            
+            if (_uiState.value.selectedDayIndex == index) {
+                _uiState.value = _uiState.value.copy(selectedDayIndex = index + 1)
+            }
+        }
+    }
+
+    fun addExerciseToDay(dayIndex: Int, libraryEntry: ExerciseLibraryEntry) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (dayIndex in currentRoutine.indices) {
+            val day = currentRoutine[dayIndex]
+            val newExercise = Exercise(
+                id = "${libraryEntry.id}_${System.currentTimeMillis()}",
+                name = libraryEntry.name,
+                nameEn = libraryEntry.nameEn,
+                sets = libraryEntry.defaultSets,
+                reps = libraryEntry.defaultReps,
+                muscleGroup = libraryEntry.muscleGroup,
+                exerciseType = libraryEntry.exerciseType.name
+            )
+            val updatedDay = day.copy(exercises = day.exercises + newExercise)
+            currentRoutine[dayIndex] = updatedDay
+            appRepository.setRoutine(currentRoutine)
+        }
+    }
+
+    fun removeExerciseFromDay(dayIndex: Int, exerciseId: String) {
+        val currentRoutine = _uiState.value.routine.toMutableList()
+        if (dayIndex in currentRoutine.indices) {
+            val day = currentRoutine[dayIndex]
+            val updatedDay = day.copy(exercises = day.exercises.filter { it.id != exerciseId })
+            currentRoutine[dayIndex] = updatedDay
+            appRepository.setRoutine(currentRoutine)
+        }
+    }
+
+    override fun onCleared() {
+        sessionTimerJob?.cancel()
+        restTimerJob?.cancel()
+        super.onCleared()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            delay(1000)
+            _isRefreshing.value = false
+        }
+    }
+}

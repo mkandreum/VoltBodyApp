@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Preloaded fonts list — declared in manifest to trigger early download -->
+<resources>
+    <array name="preloaded_fonts" translatable="false">
+        <item>@font/inter</item>
+    </array>
+</resources>
