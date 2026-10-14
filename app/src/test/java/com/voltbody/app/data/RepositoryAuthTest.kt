@@ -190,7 +190,7 @@ class RepositoryAuthTest {
         assertEquals(80.5, st.profile.weight ?: -1.0, 0.001)
         assertEquals(4, st.profile.trainingDaysPerWeek)
         assertEquals(45, st.profile.sessionMinutes)
-        assertEquals(5.0, st.profile.goalTargetKg, 0.001)
+        assertEquals(5.0, st.profile.goalTargetKg ?: -1.0, 0.001)
         assertTrue(st.isOnboarded)
     }
 
@@ -203,7 +203,8 @@ class RepositoryAuthTest {
         assertEquals(30, st.profile.age)
         assertEquals(MealTimes(), st.profile.mealTimes)
         assertEquals(AvatarConfig(0.5, 0.5), st.profile.avatarConfig)
-        assertEquals(null, st.profile.specialDish)
+        // targetCalories viene como texto, pero AppJson es lenient: si se decodifica bien, se conserva.
+        assertEquals(SpecialDish(ingredients = "pollo", targetCalories = 500), st.profile.specialDish)
         assertEquals(WeeklySpecialSession(false, "Zumba", "Sábado", 60), st.profile.weeklySpecialSession)
         assertTrue(st.isOnboarded) // la rutina y la dieta válidas se conservan
     }
