@@ -54,17 +54,37 @@ class Repository(private val ctx: Context) {
 
     fun toast(type: String, title: String, message: String? = null) { _toasts.tryEmit(Toast(type, title, message)) }
 
+    /** Decodifica sin lanzar: devuelve null si el JSON del servidor no encaja con el modelo. */
+    private inline fun <reified T> safeDecode(e: JsonElement?): T? {
+        if (e == null || e is JsonNull) return null
+        return try { AppJson.decodeFromJsonElement<T>(e) } catch (ex: CancellationException) { throw ex } catch (ex: Exception) { null }
+    }
+
     // ───────────────────────── Auth ─────────────────────────
     suspend fun login(email: String, password: String) = authenticate("/auth/login", email, password, null)
     suspend fun register(email: String, password: String, name: String) = authenticate("/auth/register", email, password, name)
 
+    /**
+     * Solo falla si el servidor no responde o no devuelve token. El perfil y la descarga de datos son
+     * best-effort: si algo no encaja con los modelos, se avisa con un toast pero la sesión se inicia.
+     */
     private suspend fun authenticate(path: String, email: String, password: String, name: String?) {
         val body = buildJsonObject { put("email", email.trim()); put("password", password); name?.let { put("name", it) } }
         val res = api.request("POST", path, body, auth = false).jsonObject
-        val user = AppJson.decodeFromJsonElement<AuthUser>(res["user"]!!)
-        update { it.copy(authToken = res["token"]!!.jsonPrimitive.content, user = user) }
-        applyServerProfile(res["profile"] as? JsonObject, user.name)
-        refreshAll()
+        val token = res["token"]?.jsonPrimitive?.contentOrNull
+            ?: error("Respuesta del servidor sin token: ${res.keys.joinToString()}")
+        val user = safeDecode<AuthUser>(res["user"]) ?: AuthUser(email = email.trim(), name = name)
+        update { it.copy(authToken = token, user = user) }
+        try {
+            applyServerProfile(res["profile"] as? JsonObject, user.name)
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+            toast("error", "Perfil incompleto", "${e::class.simpleName}: ${e.message}")
+        }
+        try {
+            refreshAll()
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+            toast("error", "No se pudieron cargar tus datos", "${e::class.simpleName}: ${e.message}")
+        }
     }
 
     fun logout() = update { AppState(hydrated = true, serverUrl = it.serverUrl) }
@@ -76,25 +96,32 @@ class Repository(private val ctx: Context) {
     private fun applyServerProfile(p: JsonObject?, userName: String?) {
         if (p == null) return
         val prefs = (p["insights"] as? JsonObject)?.get("appPreferences") as? JsonObject
-        fun <T> pref(key: String, f: (JsonElement) -> T?): T? =
-            (p[key]?.takeIf { it !is JsonNull }?.let(f)) ?: prefs?.get(key)?.takeIf { it !is JsonNull }?.let(f)
-        val profile = AppJson.decodeFromJsonElement<Profile>(p).copy(
+        fun <T> pref(key: String, f: (JsonElement) -> T?): T? {
+            fun tryF(e: JsonElement?): T? =
+                if (e == null || e is JsonNull) null else try { f(e) } catch (ex: Exception) { null }
+            return tryF(p[key]) ?: tryF(prefs?.get(key))
+        }
+        // Campos complejos se leen aparte y de forma tolerante; el resto se decodifica como Profile plano.
+        val complex = setOf("mealTimes", "foodPreferences", "weeklySpecialSession", "specialDish", "avatarConfig", "routine", "diet", "insights")
+        val flat = JsonObject(p.filterKeys { it !in complex })
+        val base = safeDecode<Profile>(flat) ?: Profile()
+        val profile = base.copy(
             name = userName ?: _state.value.profile.name,
             trainingDaysPerWeek = pref("trainingDaysPerWeek") { it.jsonPrimitive.intOrNull } ?: 3,
             sessionMinutes = pref("sessionMinutes") { it.jsonPrimitive.intOrNull } ?: 45,
             goalDirection = pref("goalDirection") { it.jsonPrimitive.contentOrNull } ?: "Perder",
             goalTargetKg = pref("goalTargetKg") { it.jsonPrimitive.doubleOrNull } ?: 5.0,
             goalTimelineMonths = pref("goalTimelineMonths") { it.jsonPrimitive.intOrNull } ?: 3,
-            foodPreferences = pref("foodPreferences") { AppJson.decodeFromJsonElement<FoodPreferences>(it) } ?: FoodPreferences(),
-            weeklySpecialSession = pref("weeklySpecialSession") { AppJson.decodeFromJsonElement<WeeklySpecialSession>(it) }
+            foodPreferences = pref("foodPreferences") { safeDecode<FoodPreferences>(it) } ?: FoodPreferences(),
+            weeklySpecialSession = pref("weeklySpecialSession") { safeDecode<WeeklySpecialSession>(it) }
                 ?: WeeklySpecialSession(false, "Zumba", "Sábado", 60),
-            specialDish = pref("specialDish") { AppJson.decodeFromJsonElement<SpecialDish>(it) },
-            mealTimes = (p["mealTimes"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<MealTimes>(it) } ?: MealTimes(),
-            avatarConfig = (p["avatarConfig"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<AvatarConfig>(it) } ?: AvatarConfig(0.5, 0.5),
+            specialDish = pref("specialDish") { safeDecode<SpecialDish>(it) },
+            mealTimes = safeDecode<MealTimes>(p["mealTimes"]) ?: MealTimes(),
+            avatarConfig = safeDecode<AvatarConfig>(p["avatarConfig"]) ?: AvatarConfig(50.0, 20.0),
         )
-        val routine = (p["routine"] as? JsonArray)?.let { AppJson.decodeFromJsonElement<List<WorkoutDay>>(it) }.orEmpty()
-        val diet = (p["diet"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<DietPlan>(it) }
-        val insights = (p["insights"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<Insights>(it) }
+        val routine = (p["routine"] as? JsonArray)?.let { safeDecode<List<WorkoutDay>>(it) }.orEmpty()
+        val diet = safeDecode<DietPlan>(p["diet"])
+        val insights = safeDecode<Insights>(p["insights"])
         update {
             it.copy(
                 profile = profile, routine = routine, diet = diet, insights = insights,
@@ -119,10 +146,21 @@ class Repository(private val ctx: Context) {
         prof.await()?.let { applyServerProfile(it, _state.value.user?.name) }
         logs.await()?.let { arr -> applyLogs(arr) }
         photos.await()?.let { arr ->
-            update { it.copy(progressPhotos = arr.map { e -> ProgressPhoto(e.jsonObject["date"]!!.jsonPrimitive.content, e.jsonObject["url"]!!.jsonPrimitive.content) }) }
+            val list = arr.mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                val d = o["date"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val u = o["url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                ProgressPhoto(d, u)
+            }
+            update { it.copy(progressPhotos = list) }
         }
         weights.await()?.let { arr ->
-            val server = arr.map { e -> WeightLog(e.jsonObject["date"]!!.jsonPrimitive.content.take(10), e.jsonObject["weight"]!!.jsonPrimitive.double) }
+            val server = arr.mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                val d = o["date"]?.jsonPrimitive?.contentOrNull?.take(10) ?: return@mapNotNull null
+                val w = o["weight"]?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
+                WeightLog(d, w)
+            }
             update { s -> s.copy(weightLogs = server.sortedBy { it.date }) }
         }
         data.await()?.let { applyData(it) }
