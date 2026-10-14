@@ -111,6 +111,7 @@ class ScreenShots {
     @Test fun s_library() = sheetShot("sec_library", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "library") }
     @Test fun weight() = sheetShot("sheet_weight", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "weight") }
 
+    @Test fun shell() = shot("shell") { com.voltbody.app.ui.v3.AppShell(it) }
     @Test fun login() = shot("login") { com.voltbody.app.ui.v3.LoginV3(it) }
     @Test fun home() = shot("home") { com.voltbody.app.ui.v3.HomeV3(it) }
     @Test fun activity() = shot("activity") { com.voltbody.app.ui.v3.ActivityV3(it) }
