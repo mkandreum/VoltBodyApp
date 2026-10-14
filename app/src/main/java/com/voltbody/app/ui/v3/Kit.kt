@@ -294,13 +294,22 @@ fun SmallPill(text: String, modifier: Modifier = Modifier, icon: ImageVector? = 
     }
 }
 
-/** Barra superior de pantallas secundarias: atras redondo + titulo centrado + accion opcional. */
+/**
+ * Barra superior de pantallas secundarias: atras redondo + titulo + acciones opcionales.
+ * En fila (no superpuestos): el titulo ocupa solo el hueco libre y se encoge o corta antes que meterse
+ * debajo de las acciones (antes quedaba bajo el icono de la camara en el entreno).
+ */
 @Composable
 fun TopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
-    Box(modifier.fillMaxWidth().height(48.dp)) {
-        IconCircle(Icons.AutoMirrored.Filled.ArrowBack, Modifier.align(Alignment.CenterStart), desc = "Atrás", onClick = onBack)
-        FitText(title, T.section, Volt.text, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), maxLines = 1, minScale = 0.75f, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        if (trailing != null) Box(Modifier.align(Alignment.CenterEnd)) { trailing() }
+    Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconCircle(Icons.AutoMirrored.Filled.ArrowBack, desc = "Atrás", onClick = onBack)
+        Spacer(Modifier.width(10.dp))
+        FitText(
+            title, T.section, Volt.text, Modifier.weight(1f), maxLines = 1, minScale = 0.7f,
+            textAlign = if (trailing == null) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+        )
+        Spacer(Modifier.width(10.dp))
+        if (trailing != null) trailing() else Spacer(Modifier.width(44.dp)) // equilibra el centrado sin acciones
     }
 }
 

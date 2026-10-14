@@ -185,6 +185,9 @@ fun AppShell(repo: Repository) {
                     GlassSheet(onDismiss = { nav.pop() }) { SectionHost(repo, section.id) }
                 }
             }
+
+            // Logros desbloqueados: celebracion a pantalla completa por encima de todo.
+            CelebrationHost(repo)
         }
     }
 }

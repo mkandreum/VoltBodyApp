@@ -119,6 +119,9 @@ fun SessionV3(repo: Repository, route: Route.Session) {
     var restTotal by remember { mutableIntStateOf(90) }
     val resting = restEnd > 0L
     var confetti by remember { mutableIntStateOf(0) }
+    // Aviso "ejercicio completado" (nombre + progreso de la sesion) que se oculta solo.
+    var doneBanner by remember { mutableStateOf<Pair<String, String>?>(null) }
+    LaunchedEffect(doneBanner) { if (doneBanner != null) { delay(2200); doneBanner = null } }
     var saving by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf<WorkoutSummaryData?>(null) }
     val gif = rememberGifLoader()
@@ -131,9 +134,11 @@ fun SessionV3(repo: Repository, route: Route.Session) {
             val logsToday = s.logs.filter { logLocalDate(it.date) == today && exercises.any { e -> e.id == it.exerciseId } }
             val streak = computeSmartStreak(s.logs, s.routine)
             val xp = s.logs.size * HM_XP_PER_LOG + streak * HM_XP_PER_STREAK_DAY
+            // Los logros nuevos se celebran a pantalla completa (CelebrationHost); el resumen espera a que terminen.
             val fresh = unlockNewAchievements(repo)
-            Haptics.heavy(ctx)
-            if (fresh.isNotEmpty()) repo.toast("success", "Logro desbloqueado", fresh.first().label)
+            Haptics.celebrate(ctx)
+            confetti++
+            delay(if (fresh.isNotEmpty()) 3300L else 700L)
             summary = WorkoutSummaryData(
                 focus = title, exerciseCount = exercises.size, completedSets = logsToday.size, plannedSets = exercises.sumOf { it.sets },
                 streak = streak, level = xp / HM_XP_PER_LEVEL + 1, totalXP = xp, xpGained = logsToday.size * HM_XP_PER_LOG,
@@ -157,10 +162,20 @@ fun SessionV3(repo: Repository, route: Route.Session) {
         scope.launch {
             repo.addLog(log)
             saving = false
-            if (isPr) { Haptics.success(ctx); confetti++; repo.toast("success", "¡Nuevo PR! 🏆", "${trim(inputs.weight)} kg en ${ex.name}") }
-            else Haptics.medium(ctx)
             val nowDone = doneSets + 1
             val lastExercise = idx == exercises.lastIndex
+            val exerciseDone = nowDone == ex.sets
+            when {
+                isPr -> { Haptics.celebrate(ctx); confetti++; repo.toast("success", "¡Nuevo PR! 🏆", "${trim(inputs.weight)} kg en ${ex.name}") }
+                exerciseDone -> { Haptics.success(ctx); confetti++ }
+                else -> Haptics.medium(ctx)
+            }
+            if (exerciseDone && !lastExercise) {
+                val completed = exercises.count { e -> e.id == ex.id || repo.state.value.logs.count { logLocalDate(it.date) == today && it.exerciseId == e.id } >= e.sets }
+                doneBanner = ex.name to "$completed de ${exercises.size} ejercicios completados"
+            }
+            // Logros que se ganan durante la sesion (primer ejercicio, tonelada, madrugador...): celebracion inmediata.
+            if (!(nowDone >= ex.sets && lastExercise)) unlockNewAchievements(repo)
             if (nowDone >= ex.sets && lastExercise) { finish(); return@launch }
             restTotal = when (type) { "isometric", "cardio" -> 45; "bodyweight" -> 75; else -> 90 }
             restEnd = System.currentTimeMillis() + restTotal * 1000L
@@ -218,7 +233,6 @@ fun SessionV3(repo: Repository, route: Route.Session) {
                         else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.FitnessCenter, null, tint = Volt.textDim, modifier = Modifier.size(64.dp)) }
                     }
                 }
-                ConfettiBurst(confetti, Modifier.matchParentSize(), big = true)
             }
             Spacer(Modifier.height(12.dp))
             AnimatedContent(ex.id, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(90)) }, label = "exName") { _ ->
@@ -271,6 +285,13 @@ fun SessionV3(repo: Repository, route: Route.Session) {
                 IconCircle(Icons.Filled.ChevronRight, size = 54.dp, desc = "Siguiente", tint = if (idx < exercises.lastIndex) Volt.text else Volt.textDim) { goTo(idx + 1) }
             }
         }
+    }
+
+    // Confeti a pantalla completa y aviso de ejercicio completado, por encima del contenido.
+    Box(Modifier.fillMaxSize()) {
+        ConfettiBurst(confetti, Modifier.fillMaxSize(), big = true)
+        val b = doneBanner
+        ExerciseDoneBanner(b != null, b?.first ?: "", b?.second ?: "", Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 64.dp))
     }
 
     summary?.let { data ->

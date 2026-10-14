@@ -282,7 +282,11 @@ fun NutritionV3(repo: Repository) {
                             if (allDone) { Haptics.success(ctx); confetti++; repo.toast("success", "¡Día perfecto! 🎉", "Has cumplido todas tus comidas.") }
                             else Haptics.medium(ctx)
                         } else Haptics.light(ctx)
-                        scope.launch { repo.setMealEaten(selKey, m.id, nowEaten) }
+                        scope.launch {
+                            repo.setMealEaten(selKey, m.id, nowEaten)
+                            // "Dia perfecto de comidas" y demas logros: se celebran a pantalla completa.
+                            if (nowEaten) com.voltbody.app.util.unlockNewAchievements(repo)
+                        }
                     },
                     onSwap = { swapMeal = m; loadAlternative(m) },
                 )

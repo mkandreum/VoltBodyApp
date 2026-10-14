@@ -20,6 +20,17 @@ val ALL_ACHIEVEMENTS: List<Achievement> = listOf(
     Achievement("pr-beaten", "Nuevo récord personal", "🥇", "Superaste tu mejor marca en un ejercicio."),
     Achievement("first-100kg", "100 kg en la barra", "🦾", "Registraste 100 kg o más en un ejercicio."),
     Achievement("consistency-week", "Semana perfecta", "✅", "Completaste todos los días de entreno en una semana."),
+    Achievement("exercise-done", "Primer ejercicio completo", "🎯", "Hiciste todas las series de un ejercicio. ¡Así se empieza!"),
+    Achievement("workout-1", "Primer entreno completo", "🎉", "Completaste todos los ejercicios de una sesión."),
+    Achievement("workout-10", "10 entrenos completos", "🏅", "Diez sesiones completas. Ya es un hábito."),
+    Achievement("workout-25", "25 entrenos completos", "👑", "Veinticinco sesiones completas. Nivel leyenda."),
+    Achievement("volume-1t", "Una tonelada", "🏗️", "Moviste 1.000 kg de volumen en un solo día."),
+    Achievement("volume-10t", "10 toneladas", "🐘", "10.000 kg de volumen acumulado."),
+    Achievement("early-bird", "Madrugador", "🌅", "Entrenaste antes de las 8:00."),
+    Achievement("night-owl", "Búho nocturno", "🦉", "Entrenaste después de las 22:00."),
+    Achievement("plank-60", "Minuto de hierro", "🧱", "Aguantaste 60 segundos o más en un isométrico."),
+    Achievement("weekend-warrior", "Guerrero de finde", "⚔️", "Entrenaste sábado y domingo del mismo fin de semana."),
+    Achievement("meals-perfect", "Día perfecto de comidas", "🥗", "Cumpliste todas las comidas del plan en un día."),
 )
 
 /**
@@ -60,6 +71,47 @@ fun evaluateAchievements(s: AppState): List<Achievement> {
         val dates = logs.mapNotNull { logLocalDate(it.date) }.toSet()
         if (plannedIdx.all { dates.contains(monday.plusDays(it.toLong())) }) ids += "consistency-week"
     }
+
+    // Ejercicios completos: todas las series planificadas de un ejercicio en un mismo dia.
+    val zone = java.time.ZoneId.systemDefault()
+    val plannedSets = (s.routine.flatMap { it.exercises } + s.customWorkout).associate { it.id to it.sets.coerceAtLeast(1) }
+    val byDay = logs.groupBy { logLocalDate(it.date) }.filterKeys { it != null }
+    if (byDay.values.any { day -> day.groupingBy { it.exerciseId }.eachCount().any { (id, n) -> n >= (plannedSets[id] ?: Int.MAX_VALUE) } }) ids += "exercise-done"
+
+    // Entrenos completos: dias en los que se hicieron todas las series de todos los ejercicios del dia planificado.
+    val routineByDay = mapRoutineByWeekday(s.routine)
+    val fullDays = byDay.count { (date, day) ->
+        val plan = routineByDay.getOrNull(mondayFirstIndex(date!!)) ?: return@count false
+        val counts = day.groupingBy { it.exerciseId }.eachCount()
+        plan.exercises.isNotEmpty() && plan.exercises.all { (counts[it.id] ?: 0) >= it.sets.coerceAtLeast(1) }
+    }
+    if (fullDays >= 1) ids += "workout-1"
+    if (fullDays >= 10) ids += "workout-10"
+    if (fullDays >= 25) ids += "workout-25"
+
+    // Volumen (kg x reps).
+    if (byDay.values.any { day -> day.sumOf { it.weight * it.reps } >= 1000 }) ids += "volume-1t"
+    if (logs.sumOf { it.weight * it.reps } >= 10_000) ids += "volume-10t"
+
+    // Horario.
+    val hours = logs.mapNotNull { runCatching { Instant.parse(it.date).atZone(zone).hour }.getOrNull() }
+    if (hours.any { it < 8 }) ids += "early-bird"
+    if (hours.any { it >= 22 }) ids += "night-owl"
+
+    // Isometrico de 60 s o mas (ejercicio marcado como isometrico en la rutina o rutina personal).
+    val iso = (s.routine.flatMap { it.exercises } + s.customWorkout).filter { it.exerciseType == "isometric" }.map { it.id }.toSet()
+    if (logs.any { it.exerciseId in iso && (it.duration ?: 0) >= 60 }) ids += "plank-60"
+
+    // Fin de semana completo.
+    val dates = byDay.keys.filterNotNull().toSet()
+    if (dates.any { it.dayOfWeek == java.time.DayOfWeek.SATURDAY && it.plusDays(1) in dates }) ids += "weekend-warrior"
+
+    // Dia perfecto de comidas.
+    val diet = s.diet
+    if (diet != null && s.mealEaten.any { (date, eaten) ->
+            val meals = runCatching { diet.mealsFor(LocalDate.parse(date)) }.getOrDefault(emptyList())
+            meals.isNotEmpty() && meals.all { it.id in eaten }
+        }) ids += "meals-perfect"
 
     val now = Instant.now().toString()
     return ids.filter { it !in earned }.mapNotNull { id -> ALL_ACHIEVEMENTS.find { it.id == id }?.copy(unlockedAt = now) }

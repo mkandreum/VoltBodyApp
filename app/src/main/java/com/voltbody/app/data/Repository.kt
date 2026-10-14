@@ -347,9 +347,15 @@ class Repository(private val ctx: Context) {
         }
     }
 
+    private val _celebrations = MutableSharedFlow<Achievement>(extraBufferCapacity = 8)
+    /** Logros recien desbloqueados: la app los celebra a pantalla completa (ver CelebrationHost). */
+    val celebrations: SharedFlow<Achievement> = _celebrations.asSharedFlow()
+
     suspend fun unlockAchievement(a: Achievement) {
         val at = a.unlockedAt ?: Instant.now().toString()
+        val isNew = _state.value.achievements.none { it.id == a.id }
         update { s -> if (s.achievements.any { it.id == a.id }) s else s.copy(achievements = s.achievements + a.copy(unlockedAt = at)) }
+        if (isNew) _celebrations.tryEmit(a.copy(unlockedAt = at))
         write("logro") { api.request("POST", "/data/achievements", buildJsonObject { put("id", a.id); put("unlockedAt", at) }) }
     }
 

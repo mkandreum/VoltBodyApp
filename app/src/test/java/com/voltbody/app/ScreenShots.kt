@@ -147,6 +147,16 @@ class ScreenShots {
         }
     }
 
+    @Test fun celebration() = shot("celebration") {
+        com.voltbody.app.ui.v3.AchievementCelebration(com.voltbody.app.util.ALL_ACHIEVEMENTS.first { a -> a.id == "workout-1" }, more = 2) {}
+    }
+    @Test fun doneBanner() = shot("done_banner") {
+        Box(Modifier.fillMaxSize()) {
+            com.voltbody.app.ui.v3.SessionV3(it, com.voltbody.app.ui.v3.Route.Session(0))
+            com.voltbody.app.ui.v3.ExerciseDoneBanner(true, "Press de banca", "1 de 4 ejercicios completados",
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 64.dp))
+        }
+    }
     @Test fun login() = shot("login") { com.voltbody.app.ui.v3.LoginV3(it) }
     @Test fun home() = shot("home") { com.voltbody.app.ui.v3.HomeV3(it) }
     @Test fun activity() = shot("activity") { com.voltbody.app.ui.v3.ActivityV3(it) }

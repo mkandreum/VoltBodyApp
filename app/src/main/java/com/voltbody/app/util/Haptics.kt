@@ -50,6 +50,8 @@ class Haptics(context: Context) {
     /** Exito: doble toque */
     fun success() = fire(VibrationEffect.EFFECT_DOUBLE_CLICK, 30)
     fun warning() = wave(0, 25, 60, 25)
+    /** Celebracion (logro, entreno completo): golpe fuerte + redoble que crece. */
+    fun celebrate() = wave(0, 45, 70, 20, 50, 20, 50, 70)
     fun error() = wave(0, 35, 70, 35, 70, 35)
 
     companion object {
@@ -61,6 +63,7 @@ class Haptics(context: Context) {
         fun success(ctx: Context) = of(ctx).success()
         fun warning(ctx: Context) = of(ctx).warning()
         fun error(ctx: Context) = of(ctx).error()
+        fun celebrate(ctx: Context) = of(ctx).celebrate()
     }
 }
 
