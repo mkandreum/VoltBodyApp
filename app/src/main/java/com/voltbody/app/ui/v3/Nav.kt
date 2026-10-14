@@ -210,7 +210,7 @@ internal fun FloatingNav(selected: Tab, onSelect: (Tab) -> Unit) {
     val pos = animateFloatAsState(sel.toFloat(), spring(dampingRatio = 0.78f, stiffness = 800f), label = "navPos")
     val accent = Volt.accent
     // Translucida: deja intuir el contenido que pasa por debajo; el filo un poco mas claro mantiene la forma.
-    val surface = Color(0xB31A1A1C) // ~70 % opaca
+    val surface = Color(0xD91A1A1C) // ~85 % opaca
     val border = Color(0x24FFFFFF)
     Row(
         Modifier.navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 12.dp).fillMaxWidth().height(66.dp)
