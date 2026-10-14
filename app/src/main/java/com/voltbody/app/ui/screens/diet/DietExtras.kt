@@ -267,7 +267,7 @@ fun RegenerateCard(repo: Repository, modifier: Modifier = Modifier) {
         Text("NUEVO PLAN", color = Volt.accent, style = VoltType.label)
         Text("✨ Regenerar plan nutricional", color = Volt.text, style = VoltType.h2)
         Text(
-            "La IA creará una dieta nueva con tus datos y preferencias actuales. Tu rutina de entrenamiento no cambia.",
+            "La IA creará un menú nuevo para los 7 días de la semana con tus datos y gustos actuales. Tu rutina de entrenamiento no cambia.",
             color = Volt.textDim, style = VoltType.body, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
         )
         PrimaryButton("Regenerar dieta", onClick = { confirm = true }, loading = loading)
@@ -275,7 +275,7 @@ fun RegenerateCard(repo: Repository, modifier: Modifier = Modifier) {
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            containerColor = Volt.surface,
+            containerColor = Volt.dialogSurface,
             shape = RoundedCornerShape(28.dp),
             title = { Text("¿Regenerar tu dieta?", color = Volt.text, style = VoltType.h2) },
             text = { Text("Se sustituirán todas las comidas actuales por un plan nuevo y se reiniciarán las comidas marcadas de hoy.", color = Volt.textDim, style = VoltType.body) },
@@ -300,7 +300,7 @@ suspend fun regenerateDiet(repo: Repository): Boolean {
     }
     return try {
         val plan = repo.generatePlan(p.copy(name = p.name ?: s.user?.name ?: "Usuario"))
-        if (plan.diet.meals.isEmpty()) {
+        if (plan.diet.meals.isEmpty() && plan.diet.week.isEmpty()) {
             repo.toast("error", "No se pudo generar la dieta", plan.details ?: "Inténtalo de nuevo en un momento.")
             return false
         }
@@ -310,7 +310,7 @@ suspend fun regenerateDiet(repo: Repository): Boolean {
         val today = LocalDate.now().toString()
         s.mealEaten[today].orEmpty().forEach { repo.setMealEaten(today, it, false) }
         if (plan.fallback) repo.toast("info", "Plan básico generado", "La IA no estuvo disponible; se usó un plan de respaldo.")
-        else repo.toast("success", "Nueva dieta lista", "${plan.diet.dailyCalories} kcal diarias")
+        else repo.toast("success", "Nueva dieta lista", "${plan.diet.dailyCalories} kcal diarias" + if (plan.diet.week.isNotEmpty()) " · menú de 7 días" else "")
         true
     } catch (e: Exception) {
         repo.toast("error", "No se pudo generar la dieta", e.message)

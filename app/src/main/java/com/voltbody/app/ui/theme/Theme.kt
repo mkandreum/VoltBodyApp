@@ -20,6 +20,8 @@ data class VoltColors(
     val border: Color, val text: Color, val textDim: Color, val orange: Color, val water: Color, val danger: Color,
     val accent2: Color = accent,
     val onAccent: Color = Color(0xFF0B0B0F),
+    /** Fondo opaco de dialogos: no cambia dentro de las hojas de cristal (donde surface es translucido). */
+    val dialogSurface: Color = Color(0xFF1A1A1C),
 ) {
     /** Gradiente de marca horizontal (accent -> accent2). */
     // Sin degradados de color (decision de diseno): la "marca" es el acento solido.

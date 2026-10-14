@@ -58,7 +58,6 @@ private const val WEIGHT_STEP = 0.1
  */
 @Composable
 fun WeightSheet(repo: Repository, logs: List<WeightLog>) {
-    val nav = LocalNav.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -78,18 +77,9 @@ fun WeightSheet(repo: Repository, logs: List<WeightLog>) {
         1 -> Volt.orange
         else -> Volt.textDim
     }
-    val recent = remember(logs) { logs.takeLast(14) }
+    val recent = remember(logs) { logs.takeLast(30) } // un mes (incluye lo importado de Health Connect)
 
-    Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-            .navigationBarsPadding().padding(horizontal = K.pad).padding(top = 4.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(K.gap),
-    ) {
-        // Cabecera: titulo grande + cerrar.
-        Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
-            MixTitle("Tu peso, hoy", modifier = Modifier.weight(1f), maxLines = 1)
-            IconCircle(Icons.Filled.Close, size = 40.dp, desc = "Cerrar") { nav.pop() }
-        }
+    SheetScaffold("Tu peso, hoy", eyebrow = "Tu progreso", mixTitle = true) {
 
         // Cifra enorme.
         Column(Modifier.fillMaxWidth().enter(1), horizontalAlignment = Alignment.CenterHorizontally) {

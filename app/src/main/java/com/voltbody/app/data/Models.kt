@@ -43,7 +43,34 @@ val AppJson = Json { ignoreUnknownKeys = true; coerceInputValues = true; explici
     val calories: Int = 0, val protein: Int = 0, val carbs: Int = 0, val fat: Int = 0, val description: String = "",
 )
 @Serializable data class Macros(val protein: Int = 0, val carbs: Int = 0, val fat: Int = 0)
-@Serializable data class DietPlan(val dailyCalories: Int = 0, val macros: Macros = Macros(), val meals: List<Meal> = emptyList())
+/** Menu de un dia de la semana ([day] = "Lunes".."Domingo"). */
+@Serializable data class DayMenu(val day: String = "", val meals: List<Meal> = emptyList())
+
+/**
+ * Plan de comidas. [meals] es el menu base (lo que usan la web y los planes antiguos);
+ * [week] trae un menu distinto por dia cuando el servidor lo genera (7 entradas, lunes primero).
+ */
+@Serializable data class DietPlan(
+    val dailyCalories: Int = 0, val macros: Macros = Macros(), val meals: List<Meal> = emptyList(),
+    val week: List<DayMenu> = emptyList(),
+) {
+    /** Indice 0 = lunes ... 6 = domingo del menu de [week] para ese dia, o -1 si no hay. */
+    fun weekIndexFor(date: java.time.LocalDate): Int {
+        val wd = date.dayOfWeek.value - 1
+        val i = week.indexOfFirst { com.voltbody.app.util.weekdayIndexFromName(it.day) == wd && it.meals.isNotEmpty() }
+        return if (i >= 0) i else if (week.size == 7 && week[wd].meals.isNotEmpty()) wd else -1
+    }
+
+    /** Comidas de [date]: las del dia de la semana si hay menu semanal, si no el menu base. */
+    fun mealsFor(date: java.time.LocalDate): List<Meal> = weekIndexFor(date).let { if (it >= 0) week[it].meals else meals }
+
+    /** Sustituye la comida [oldId] por [newMeal] solo en el dia [date] (o en el menu base si no hay semana). */
+    fun replaceMeal(date: java.time.LocalDate, oldId: String, newMeal: Meal): DietPlan {
+        val i = weekIndexFor(date)
+        return if (i < 0) copy(meals = meals.map { if (it.id == oldId) newMeal else it })
+        else copy(week = week.mapIndexed { j, d -> if (j == i) d.copy(meals = d.meals.map { if (it.id == oldId) newMeal else it }) else d })
+    }
+}
 
 @Serializable data class WorkoutLog(
     val date: String, val exerciseId: String, val weight: Double, val reps: Int,

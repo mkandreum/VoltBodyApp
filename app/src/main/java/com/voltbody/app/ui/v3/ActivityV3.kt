@@ -58,13 +58,13 @@ data class DaySummary(
 )
 
 fun summarize(st: AppState, days: List<LocalDate>): DaySummary {
-    val meals = st.diet?.meals.orEmpty()
     val byDay = mapRoutineByWeekday(st.routine)
     val logsByDay = st.logs.groupBy { logLocalDate(it.date) }
-    var kcal = 0; var steps = 0; var km = 0.0; var water = 0; var sets = 0; var planned = 0; var done = 0; var eaten = 0
+    var kcal = 0; var steps = 0; var km = 0.0; var water = 0; var sets = 0; var planned = 0; var done = 0; var eaten = 0; var mealCount = 0
     var pctSum = 0f
     days.forEach { d ->
         val key = d.toString()
+        val meals = st.diet?.mealsFor(d).orEmpty()
         val ids = st.mealEaten[key].orEmpty()
         val dk = meals.filter { it.id in ids }.sumOf { it.calories }
         val m = st.metrics.firstOrNull { it.date == key }
@@ -73,7 +73,7 @@ fun summarize(st: AppState, days: List<LocalDate>): DaySummary {
         val p = r?.exercises?.size ?: 0
         val dn = r?.exercises?.count { ex -> dl.any { it.exerciseId == ex.id } } ?: 0
         kcal += dk; steps += m?.steps ?: 0; km += m?.distanceKm ?: 0.0; water += m?.waterMl ?: 0
-        sets += dl.size; planned += p; done += dn; eaten += ids.size
+        sets += dl.size; planned += p; done += dn; eaten += meals.count { it.id in ids }; mealCount += meals.size
         val parts = buildList {
             val target = st.diet?.dailyCalories ?: 0
             if (target > 0) add((dk / target.toFloat()).coerceAtMost(1f))
@@ -87,7 +87,7 @@ fun summarize(st: AppState, days: List<LocalDate>): DaySummary {
     return DaySummary(
         kcal, (st.diet?.dailyCalories ?: 0) * days.size, steps, km, water, sets, planned, done,
         if (days.size == 1 && last != null) byDay[mondayFirstIndex(last)]?.focus else null,
-        eaten, meals.size * days.size,
+        eaten, mealCount,
         st.weightLogs.lastOrNull { w -> days.any { it.toString() == w.date } }?.weight,
         Math.round(pctSum / days.size.coerceAtLeast(1) * 100),
     )
@@ -177,8 +177,9 @@ fun ActivityV3(repo: Repository) {
     }
 
     if (showMonth) {
-        ModalBottomSheet(onDismissRequest = { showMonth = false }, containerColor = Volt.surface) {
-            Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+        VoltModalSheet(onDismiss = { showMonth = false }) {
+            Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+                Text("CALENDARIO", style = T.label, color = Volt.accent)
                 Text(selected.month.getDisplayName(TextStyle.FULL, ES).replaceFirstChar { it.uppercase() } + " " + selected.year, style = T.section, color = Volt.text)
                 Spacer(Modifier.height(12.dp))
                 MonthGrid(selected.withDayOfMonth(1), selected, st) { d -> selected = d; weekly = false; showMonth = false; Haptics.selection(ctx) }
@@ -203,7 +204,7 @@ private fun SummaryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, ti
 /** Tira de dias del mockup: numeros sueltos y el seleccionado en pildora lima ("Hoy, 14 oct"). */
 @Composable
 fun DayStrip(today: LocalDate, selected: LocalDate, modifier: Modifier = Modifier, onSelect: (LocalDate) -> Unit) {
-    val days = remember(today) { (-21..7).map { today.plusDays(it.toLong()) } }
+    val days = remember(today) { (-35..7).map { today.plusDays(it.toLong()) } }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (days.indexOf(today) - 2).coerceAtLeast(0))
     LazyRow(modifier.fillMaxWidth(), state = state, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         itemsIndexed(days, key = { _, d -> d.toEpochDay() }) { _, d ->

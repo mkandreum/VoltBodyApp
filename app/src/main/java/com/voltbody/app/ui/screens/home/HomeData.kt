@@ -94,7 +94,7 @@ fun buildHomeUi(st: AppState, today: LocalDate, weekdayName: String): HomeUi {
     val weeklyConsistency = minOf(Math.round(completedDays / 7f * 100), 100)
 
     val diet = st.diet
-    val meals = diet?.meals.orEmpty()
+    val meals = diet?.mealsFor(today).orEmpty()
     val eatenToday = st.mealEaten[todayKey].orEmpty()
     val consumedKcal = meals.filter { it.id in eatenToday }.sumOf { it.calories }
     val nutritionAdherence = if (meals.isEmpty()) 0 else Math.round(meals.count { it.id in eatenToday } * 100f / meals.size)

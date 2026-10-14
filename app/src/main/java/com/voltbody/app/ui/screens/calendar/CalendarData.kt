@@ -37,7 +37,7 @@ fun dayStats(st: AppState, date: LocalDate, water: Int, steps: Long): DayStats {
     val total = planned?.exercises?.sumOf { max(1, it.sets) } ?: 0
     val done = planned?.exercises?.sumOf { min(max(1, it.sets), sets[it.id] ?: 0) } ?: 0
     val progress = if (total > 0) Math.round(done * 100f / total) else 0
-    val meals = st.diet?.meals.orEmpty()
+    val meals = st.diet?.mealsFor(date).orEmpty()
     val eaten = st.mealEaten[date.toString()].orEmpty().toSet()
     val kcal = meals.filter { it.id in eaten }.sumOf { it.calories }
     val parts = buildList {

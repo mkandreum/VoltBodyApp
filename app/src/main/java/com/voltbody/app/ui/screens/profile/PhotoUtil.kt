@@ -157,7 +157,7 @@ fun rememberPhotoPicker(title: String, onPhoto: suspend (String) -> Unit): Photo
     if (show.value) {
         AlertDialog(
             onDismissRequest = { show.value = false },
-            containerColor = Volt.surface,
+            containerColor = Volt.dialogSurface,
             title = { Text(title, color = Volt.text, fontWeight = FontWeight.Bold) },
             text = { Text("Elige de dónde quieres obtener la foto. Se comprime automáticamente.", color = Volt.textDim) },
             confirmButton = {

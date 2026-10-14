@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.voltbody.app.ui.theme.Jakarta
+import com.voltbody.app.ui.glassPanel
 import com.voltbody.app.ui.theme.Volt
 import com.voltbody.app.util.Haptics
 import kotlinx.coroutines.delay
@@ -199,8 +200,10 @@ fun Screen(scroll: Boolean = true, bottomSpace: Dp = K.navSpace, content: @Compo
 
 @Composable
 fun Card(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, padding: Dp = 16.dp, color: Color = Volt.surface, content: @Composable ColumnScope.() -> Unit) {
+    // En hojas de cristal la tarjeta por defecto pasa a panel de vidrio (los colores personalizados se respetan).
+    val glass = com.voltbody.app.ui.LocalGlass.current && color == Volt.surface
     Column(
-        modifier.clip(RoundedCornerShape(K.radius)).background(color)
+        modifier.then(if (glass) Modifier.glassPanel(RoundedCornerShape(K.radius)) else Modifier.clip(RoundedCornerShape(K.radius)).background(color))
             .then(if (onClick != null) Modifier.tap(0.97f, onClick = onClick) else Modifier)
             .padding(padding),
         content = content,

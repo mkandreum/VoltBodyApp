@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voltbody.app.data.FoodPreferences
 import com.voltbody.app.data.Repository
+import com.voltbody.app.ui.glassPanel
 import com.voltbody.app.ui.screens.diet.FoodPreferencesCard
 import com.voltbody.app.ui.screens.diet.RegenerateCard
 import com.voltbody.app.ui.screens.diet.SpecialDishCard
@@ -161,20 +162,10 @@ private fun MenuGroup(title: String, index: Int, content: @Composable ColumnScop
 
 // ─────────────────────────────── Pantallas de seccion ───────────────────────────────
 
+/** Contenido de una hoja de seccion: cabecera fija con antetitulo + cuerpo desplazable (ver [SheetScaffold]). */
 @Composable
-private fun SectionScreen(title: String, content: @Composable ColumnScope.() -> Unit) {
-    val nav = LocalNav.current
-    Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-            .navigationBarsPadding().padding(horizontal = K.pad).padding(top = 4.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(K.gap),
-    ) {
-        Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
-            FitText(title, T.screen.copy(fontSize = 28.sp, lineHeight = 32.sp), Volt.text, Modifier.weight(1f), maxLines = 1)
-            IconCircle(Icons.Filled.Close, size = 40.dp, desc = "Cerrar") { nav.pop() }
-        }
-        content()
-    }
+private fun SectionScreen(title: String, eyebrow: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    SheetScaffold(title, eyebrow = eyebrow, content = content)
 }
 
 @Composable
@@ -184,31 +175,36 @@ fun SectionHost(repo: Repository, id: String) {
     val nav = LocalNav.current
     val ctx = LocalContext.current
     when (id) {
-        "personal" -> SectionScreen("Datos personales") { PersonalDataCard(repo, st.profile, st.notificationsEnabled) }
+        "personal" -> SectionScreen("Datos personales", "Perfil") { PersonalDataCard(repo, st.profile, st.notificationsEnabled) }
         "weight" -> WeightSheet(repo, st.weightLogs)
-        "photos" -> SectionScreen("Fotos de progreso") { PhotosCard(repo, st.progressPhotos, scope) }
-        "achievements" -> SectionScreen("Logros") { AchievementsCard(st.achievements) }
-        "habits" -> SectionScreen("Hábitos de la semana") {
+        "photos" -> SectionScreen("Fotos de progreso", "Tu progreso") { PhotosCard(repo, st.progressPhotos, scope) }
+        "achievements" -> SectionScreen("Logros", "Tu progreso") { AchievementsCard(st.achievements) }
+        "habits" -> SectionScreen("Hábitos de la semana", "Tu progreso") {
             val streak = remember(st.logs, st.routine) { computeSmartStreak(st.logs, st.routine) }
-            Card(Modifier.fillMaxWidth()) { ValueUnit("$streak", "días de racha", style = T.hero) }
+            Card(Modifier.fillMaxWidth()) {
+                Text("RACHA ACTUAL", style = T.label, color = Volt.textDim)
+                Spacer(Modifier.height(4.dp))
+                ValueUnit("$streak", if (streak == 1) "día" else "días", style = T.hero)
+            }
             HabitsCard(repo, st.weeklyGoals, scope)
         }
-        "recovery" -> SectionScreen("Recuperación") {
+        "recovery" -> SectionScreen("Recuperación", "Salud") {
             val health = rememberHealthState(repo)
             val u = rememberHomeUi(repo)
             if (u != null) RecoveryCard(repo, health, u.todayRecovery, u.advice, u.recoveryScore, scope)
         }
-        "report" -> SectionScreen("Informe IA") { ReportCard(repo) }
-        "health" -> SectionScreen("Salud y sensores") {
+        "report" -> SectionScreen("Informe IA", "Tu evolución") { ReportCard(repo) }
+        "health" -> SectionScreen("Salud y sensores", "Dispositivos") {
             HealthCard(repo)
             HeartRateCard()
         }
-        "notifications" -> SectionScreen("Notificaciones") { NotificationsSection(repo) }
-        "theme" -> SectionScreen("Tema") {
+        "notifications" -> SectionScreen("Notificaciones", "Ajustes") { NotificationsSection(repo) }
+        "theme" -> SectionScreen("Tema", "Ajustes") {
             listOf("verde-negro", "aguamarina-negro", "ocaso-negro").forEach { t ->
                 val c = voltColors(t)
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(K.radius)).background(Volt.surface)
+                    Modifier.fillMaxWidth().glassPanel(RoundedCornerShape(K.radius))
+                        .then(if (st.theme == t) Modifier.border(1.5.dp, c.accent, RoundedCornerShape(K.radius)) else Modifier)
                         .tap(0.98f) { scope.launch { repo.saveProfile { it.copy(theme = t) } } }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -219,14 +215,14 @@ fun SectionHost(repo: Repository, id: String) {
                 }
             }
         }
-        "server" -> SectionScreen("Servidor") { ServerCard(repo) }
-        "data" -> SectionScreen("Mis datos") { DataCard(repo, st) }
-        "diet" -> SectionScreen("Plan de comidas") {
+        "server" -> SectionScreen("Servidor", "Ajustes") { ServerCard(repo) }
+        "data" -> SectionScreen("Mis datos", "Ajustes") { DataCard(repo, st) }
+        "diet" -> SectionScreen("Plan de comidas", "Nutrición") {
             st.diet?.let { SpecialDishCard(repo, it, st.profile.specialDish) }
             FoodPreferencesCard(repo, st.profile.foodPreferences ?: FoodPreferences())
             RegenerateCard(repo)
         }
-        "fatigue" -> SectionScreen("Fatiga muscular") {
+        "fatigue" -> SectionScreen("Fatiga muscular", "Entreno") {
             val entries = remember(st.logs, st.routine, st.customWorkout) { computeFatigueIndex(st.logs, st.routine, extraExercises = st.customWorkout) }
             if (entries.isEmpty()) Card(Modifier.fillMaxWidth()) { Text("Registra series esta semana para ver tu volumen por grupo muscular.", style = T.body, color = Volt.textDim) }
             entries.forEach { e ->
@@ -244,11 +240,11 @@ fun SectionHost(repo: Repository, id: String) {
                 }
             }
         }
-        "library" -> SectionScreen("Rutina personal") {
+        "library" -> SectionScreen("Rutina personal", "Entreno") {
             val custom = st.customWorkout
             if (custom.isNotEmpty()) LimeButton("Entrenar rutina personal", { nav.replace(Route.Session(-1, 0, custom = true)) }, icon = Icons.Filled.PlayArrow)
             custom.forEach { ex ->
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().glassPanel(RoundedCornerShape(20.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(ex.name, style = T.cardTitle, color = Volt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(setsLabel(ex) + " · " + ex.muscleGroup, style = T.caption, color = Volt.textDim, maxLines = 1)
@@ -262,7 +258,7 @@ fun SectionHost(repo: Repository, id: String) {
                 items.forEach { e ->
                     val added = custom.any { it.id == e.id }
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface)
+                        Modifier.fillMaxWidth().glassPanel(RoundedCornerShape(20.dp))
                             .tap(0.98f) {
                                 if (!added) scope.launch {
                                     Haptics.medium(ctx)

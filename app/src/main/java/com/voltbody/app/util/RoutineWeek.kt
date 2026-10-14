@@ -35,7 +35,8 @@ val DEFAULT_WEEKLY_GOALS = listOf(
 private fun normalizeText(v: String): String =
     Normalizer.normalize(v.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").trim()
 
-private fun weekdayIndexFromName(dayName: String): Int {
+/** 0 = lunes ... 6 = domingo a partir del nombre del dia ("Lunes", "miércoles"...); -1 si no se reconoce. */
+fun weekdayIndexFromName(dayName: String): Int {
     val n = normalizeText(dayName)
     return when {
         n.contains("lun") -> 0

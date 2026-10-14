@@ -42,9 +42,29 @@ fun Modifier.gradientBorder(width: Dp = 1.dp, shape: Shape = RoundedCornerShape(
     this.border(width, b, shape)
 }
 
+/**
+ * true dentro de las hojas inferiores de cristal: las tarjetas se dibujan como paneles de vidrio
+ * (relleno blanco translucido + filo de luz de 1dp, sin brillos de color) para integrarse con el fondo desenfocado.
+ */
+val LocalGlass = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** Radio comun de las tarjetas dentro de una hoja (coincide con las tarjetas v3). */
+val GlassRadius = 24.dp
+
+/** Panel de vidrio: relleno [Volt.surface] (translucido en hojas) + filo superior de luz. */
+fun Modifier.glassPanel(shape: Shape = RoundedCornerShape(GlassRadius)): Modifier = composed {
+    val fill = Volt.surface
+    this.clip(shape).background(fill)
+        .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.04f))), shape)
+}
+
 /** Tarjeta oscura (radio 28) con borde de 1dp blanco 6 %. */
 @Composable
 fun VoltCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, padding: Dp = 16.dp, content: @Composable ColumnScope.() -> Unit) {
+    if (LocalGlass.current) {
+        Column(modifier.glassPanel().let { if (onClick != null) it.pressScale(onClick) else it }.padding(padding), content = content)
+        return
+    }
     val shape = RoundedCornerShape(28.dp)
     Column(
         modifier.clip(shape).background(Volt.surface).border(1.dp, Volt.border, shape)
@@ -62,6 +82,10 @@ fun BentoCard(
     modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, hero: Boolean = false, gradient: Boolean = false,
     padding: Dp = 20.dp, content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (LocalGlass.current && !gradient) {
+        Column(modifier.glassPanel().let { if (onClick != null) it.pressScale(onClick) else it }.padding(padding), content = content)
+        return
+    }
     val shape = RoundedCornerShape(if (hero) 36.dp else 28.dp)
     val fill = Volt.surface
     val grad = Volt.gradient

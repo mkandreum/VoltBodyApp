@@ -166,12 +166,7 @@ fun MealSwapSheet(
     old: Meal, alt: Meal?, loading: Boolean, applying: Boolean,
     onApply: () -> Unit, onRetry: () -> Unit, onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Volt.surface,
-        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
-    ) {
+    com.voltbody.app.ui.v3.VoltModalSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("CAMBIO CON IA", color = Volt.accent, style = VoltType.label)
             Text("Una alternativa para ${old.name}", color = Volt.text, style = VoltType.h2)

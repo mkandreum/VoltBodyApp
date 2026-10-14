@@ -108,6 +108,8 @@ import com.voltbody.app.util.RecoveryAdvice
 import com.voltbody.app.util.saveRecoveryCheckin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -160,31 +162,66 @@ class HealthState(private val ctx: Context) {
     suspend fun sleepLastNight(): Double? =
         snap?.sleepHours ?: runCatching { manager.readSleepLastNight() }.getOrNull()
 
-    private var monthSynced = false
-
     /**
-     * Sincroniza los ultimos [days] dias (ventana rodante) de Health Connect con el servidor, en segundo plano.
-     * Idempotente: se ejecuta una sola vez por sesion y solo sube los dias cuyos valores cambiaron. Hoy lo cubre [refresh].
+     * Vuelca a la cuenta el historico de Health Connect del ultimo mes ([days] dias: pasos, distancia,
+     * kcal, sueno, HRV, FC en reposo y peso) para que Actividad/Calendario tengan datos de dias pasados.
+     * Idempotente: como mucho una vez cada [SYNC_EVERY_MS] por proceso (aunque haya varias pantallas
+     * con su propio HealthState), solo sube los dias que cambiaron y, si la lectura falla, se reintenta.
      */
-    suspend fun syncLastMonth(repo: Repository?, days: Int = 30) {
-        if (monthSynced || repo == null) return
+    suspend fun syncLastMonth(repo: Repository?, days: Int = HISTORY_DAYS): Int {
+        if (repo == null) return -1
+        val now = System.currentTimeMillis()
+        if (now - lastMonthSync < SYNC_EVERY_MS || syncing) return -1
         val m = manager
-        if (runCatching { m.availability() }.getOrDefault(-1) != HealthConnectClient.SDK_AVAILABLE) return
-        if (!runCatching { m.hasAnyPermission() }.getOrDefault(false)) return
-        if (!repo.state.value.isAuthenticated) return
-        val today = LocalDate.now()
-        val daily = runCatching { m.readDaily(today.minusDays((days - 1).toLong()), today) }.getOrNull() ?: return
-        monthSynced = true
-        if (daily.isEmpty()) return
-        var saved = 0
-        for ((date, dm) in daily) {
-            if (date == today.toString()) continue // hoy ya lo maneja refresh()
-            if (dm == DailyMetric(date)) continue // dia sin datos utiles
-            val old = repo.state.value.metrics.firstOrNull { it.date == date }
-            if (!metricsDiffer(dm, old)) continue
-            if (runCatching { repo.saveMetrics(date, dm) }.isSuccess) saved++
+        if (runCatching { m.availability() }.getOrDefault(-1) != HealthConnectClient.SDK_AVAILABLE) return -1
+        if (!runCatching { m.hasAnyPermission() }.getOrDefault(false)) return -1
+        if (!repo.state.value.isAuthenticated) return -1
+        syncing = true
+        try {
+            // Espera a tener los datos del servidor para comparar y no resubir dias ya guardados.
+            withTimeoutOrNull(15_000) { repo.state.first { it.profileLoaded } }
+            val today = LocalDate.now()
+            val from = today.minusDays((days - 1).toLong())
+            val daily = runCatching { m.readDaily(from, today) }.getOrNull() ?: return -1
+            val weights = runCatching { m.readDailyWeights(from, today) }.getOrDefault(emptyMap())
+            lastMonthSync = now
+            var saved = 0
+            for ((date, dm) in daily.toSortedMap()) {
+                if (date == today.toString()) continue // hoy ya lo maneja refresh()
+                if (dm == DailyMetric(date)) continue // dia sin datos utiles
+                val old = repo.state.value.metrics.firstOrNull { it.date == date }
+                if (!metricsDiffer(dm, old)) continue
+                if (runCatching { repo.saveMetrics(date, dm) }.isSuccess) saved++
+            }
+            // Peso: solo dias sin registro en la app (no pisa lo que el usuario apunto a mano).
+            val known = repo.state.value.weightLogs.map { it.date }.toSet()
+            var savedWeights = 0
+            for ((date, kg) in weights.toSortedMap()) {
+                if (date in known) continue
+                if (runCatching { repo.addWeight(date, kg) }.getOrDefault(false)) savedWeights++
+            }
+            if (saved > 0 || savedWeights > 0) {
+                val parts = listOfNotNull(
+                    saved.takeIf { it > 0 }?.let { "$it días de actividad" },
+                    savedWeights.takeIf { it > 0 }?.let { "$it pesos" },
+                )
+                repo.toast("success", "Historial de salud importado", parts.joinToString(" y ") + " del último mes")
+            }
+            return saved + savedWeights
+        } finally {
+            syncing = false
         }
-        if (saved > 0) repo.toast("success", "Salud sincronizada", "$saved días importados de Health Connect")
+    }
+
+    companion object {
+        /** Ventana de historico que se importa (un mes). */
+        const val HISTORY_DAYS = 31
+        private const val SYNC_EVERY_MS = 6 * 60 * 60 * 1000L
+        @Volatile private var lastMonthSync = 0L
+        @Volatile private var syncing = false
+
+        /** Fuerza el proximo volcado (p. ej. tras conceder permisos nuevos). */
+        fun resetMonthSync() { lastMonthSync = 0L }
     }
 
     private fun metricsDiffer(m: DailyMetric, old: DailyMetric?): Boolean =
@@ -199,8 +236,11 @@ fun rememberHealthState(repo: Repository? = null): HealthState {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val hs = remember { HealthState(ctx.applicationContext) }
-    val launcher = rememberLauncherForActivityResult(hs.manager.requestContract()) { scope.launch { hs.refresh(repo); hs.syncLastMonth(repo) } }
-    hs.requestPermissions = { runCatching { launcher.launch(hs.manager.permissions) } }
+    val launcher = rememberLauncherForActivityResult(hs.manager.requestContract()) {
+        HealthState.resetMonthSync()
+        scope.launch { hs.refresh(repo); hs.syncLastMonth(repo) }
+    }
+    hs.requestPermissions = { runCatching { launcher.launch(hs.manager.requestedPermissions) } }
     // Solo el flag de autenticacion (no todo el AppState): evita recomponer la pantalla en cada cambio de estado.
     val authedFlow = remember(repo) { (repo?.state?.map { it.isAuthenticated } ?: flowOf(false)).distinctUntilChanged() }
     val authed by authedFlow.collectAsStateWithLifecycle(initialValue = false)

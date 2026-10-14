@@ -303,11 +303,11 @@ class Repository(private val ctx: Context) {
         return write("serie", reload = { reloadLogs() }) { api.request("DELETE", "/workout/logs/$id") }
     }
 
-    suspend fun addWeight(date: String, kg: Double) {
+    suspend fun addWeight(date: String, kg: Double): Boolean {
         val w = WeightLog(date, kg)
         update { it.copy(weightLogs = (it.weightLogs.filter { x -> x.date != date } + w).sortedBy { x -> x.date },
             profile = if (date == LocalDate.now().toString()) it.profile.copy(weight = kg) else it.profile) }
-        write("peso", reload = { refreshAll() }) {
+        return write("peso", reload = { refreshAll() }) {
             api.request("POST", "/workout/weight-logs", buildJsonObject { put("date", "${date}T12:00:00.000Z"); put("weight", kg) })
         }
     }
@@ -398,8 +398,12 @@ class Repository(private val ctx: Context) {
     suspend fun generatePlan(profile: Profile): Plan =
         api.post("/ai/generate-plan", AppJson.encodeToJsonElement(profile))
 
-    suspend fun alternativeMeal(old: Meal): Meal = api.post("/ai/generate-alternative-meal", buildJsonObject {
+    /** [dayMeals] = resto de comidas de ese dia: el servidor las usa para no repetir ingredientes. */
+    suspend fun alternativeMeal(old: Meal, dayMeals: List<Meal> = emptyList()): Meal = api.post("/ai/generate-alternative-meal", buildJsonObject {
         put("oldMeal", AppJson.encodeToJsonElement(old)); put("profile", AppJson.encodeToJsonElement(_state.value.profile))
+        _state.value.diet?.let { d -> put("targets", buildJsonObject { put("dailyCalories", d.dailyCalories); put("macros", AppJson.encodeToJsonElement(d.macros)) }) }
+        val others = dayMeals.filter { it.id != old.id }
+        if (others.isNotEmpty()) put("dayMeals", JsonArray(others.map { m -> buildJsonObject { put("name", m.name); put("time", m.time); put("calories", m.calories) } }))
     })
 
     suspend fun progressReport(): ProgressReport {

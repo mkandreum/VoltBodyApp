@@ -82,6 +82,7 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
     }
     LaunchedEffect(Unit) { availability = runCatching { manager.availability() }.getOrDefault(1); refresh() }
 
+    val historyState = remember { com.voltbody.app.ui.screens.home.HealthState(ctx.applicationContext) }
     val contract = remember(manager) { manager.requestContract() }
     val launcher = rememberLauncherForActivityResult(contract) { granted: Set<String> ->
         scope.launch {
@@ -89,6 +90,10 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
             enabled = granted.isNotEmpty()
             prefs.edit().putBoolean("healthConnectEnabled", enabled).apply()
             refresh()
+            if (granted.isNotEmpty()) {
+                com.voltbody.app.ui.screens.home.HealthState.resetMonthSync()
+                historyState.syncLastMonth(repo)
+            }
             if (all) repo.toast("success", "Health Connect conectado", "Pasos, sueño y peso listos para sincronizar.")
             else if (granted.isNotEmpty()) repo.toast("info", "Permisos parciales", "Algunos datos no estarán disponibles.")
             else repo.toast("error", "Permiso denegado", "Puedes concederlo desde los ajustes de Health Connect.")
@@ -134,7 +139,7 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
         }
 
         if (!connected) {
-            PrimaryButton("Conectar Health Connect", onClick = { launcher.launch(manager.permissions) })
+            PrimaryButton("Conectar Health Connect", onClick = { launcher.launch(manager.requestedPermissions) })
         } else {
             val s = snapshot
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -190,6 +195,18 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
                         }
                         busy = false
                     }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            SmallButton(if (busy) "Importando…" else "Importar último mes", Modifier.fillMaxWidth(), enabled = !busy) {
+                scope.launch {
+                    busy = true
+                    com.voltbody.app.ui.screens.home.HealthState.resetMonthSync()
+                    when (historyState.syncLastMonth(repo)) {
+                        0 -> repo.toast("info", "Historial al día", "No hay datos nuevos en los últimos ${com.voltbody.app.ui.screens.home.HealthState.HISTORY_DAYS} días.")
+                        -1 -> repo.toast("error", "No se pudo leer Health Connect", "Revisa los permisos y vuelve a intentarlo.")
+                    }
+                    busy = false
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -310,7 +327,7 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
-            containerColor = Volt.surface,
+            containerColor = Volt.dialogSurface,
             shape = RoundedCornerShape(28.dp),
             title = { Text("¿Resetear datos locales?", color = Volt.text, fontWeight = FontWeight.Bold) },
             text = {
@@ -340,7 +357,7 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
     if (confirmLogout) {
         AlertDialog(
             onDismissRequest = { confirmLogout = false },
-            containerColor = Volt.surface,
+            containerColor = Volt.dialogSurface,
             shape = RoundedCornerShape(28.dp),
             title = { Text("¿Cerrar sesión?", color = Volt.text, fontWeight = FontWeight.Bold) },
             text = { Text("Se borrarán los datos de este dispositivo. Tu cuenta y tus datos siguen en el servidor.", color = Volt.textDim) },

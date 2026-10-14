@@ -74,6 +74,16 @@ class HealthConnectManager(ctx: Context) {
         HealthPermission.getWritePermission(WeightRecord::class),
     )
 
+    /**
+     * Permiso opcional para leer mas de 30 dias hacia atras (Health Connect por defecto solo deja
+     * leer los 30 dias previos a la primera concesion). Se pide junto al resto; si el dispositivo
+     * no lo soporta simplemente no se concede.
+     */
+    val historyPermission = "android.permission.health.READ_HEALTH_DATA_HISTORY"
+
+    /** Lo que se pide al usuario: los permisos base + el de historico. */
+    val requestedPermissions: Set<String> get() = permissions + historyPermission
+
     private suspend fun granted(): Set<String> {
         val c = client ?: return emptySet()
         return try { c.permissionController.getGrantedPermissions() } catch (_: Exception) { emptySet() }
@@ -141,6 +151,9 @@ class HealthConnectManager(ctx: Context) {
         val from = start.atStartOfDay(zone).toInstant()
         val to = end.plusDays(1).atStartOfDay(zone).toInstant()
         val range = TimeRangeFilter.between(from, to)
+        // aggregateGroupByPeriod (Period = dias de calendario) EXIGE un rango en hora local:
+        // con Instant lanza IllegalArgumentException y no se importaba ningun dia de pasos/kcal.
+        val localRange = TimeRangeFilter.between(start.atStartOfDay(), end.plusDays(1).atStartOfDay())
         val out = LinkedHashMap<String, DailyMetric>()
         fun at(date: String) = out[date] ?: DailyMetric(date)
 
@@ -154,7 +167,7 @@ class HealthConnectManager(ctx: Context) {
         }
         if (metrics.isNotEmpty()) {
             runCatching {
-                c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(metrics, range, Period.ofDays(1)))
+                c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(metrics, localRange, Period.ofDays(1)))
             }.getOrNull()?.forEach { row ->
                 val date = row.startTime.toLocalDate().toString()
                 val steps = row.result[StepsRecord.COUNT_TOTAL] ?: 0L
@@ -175,8 +188,9 @@ class HealthConnectManager(ctx: Context) {
         // 2) Sueno por dia: sesiones que terminan ese dia, intervalos fusionados (excluye "despierto").
         if (g.canRead(SleepSessionRecord::class)) {
             runCatching {
-                c.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range, ascendingOrder = true))
-            }.getOrNull()?.records?.let { sessions ->
+                // Las sesiones que terminan el primer dia empiezan la noche anterior.
+                readAll(SleepSessionRecord::class, TimeRangeFilter.between(from.minus(Duration.ofHours(14)), to))
+            }.getOrNull()?.filter { !it.endTime.isBefore(from) }?.let { sessions ->
                 val byDay = HashMap<String, MutableList<Pair<Instant, Instant>>>()
                 for (s in sessions) {
                     val intervals = if (s.stages.isEmpty()) {
@@ -198,8 +212,8 @@ class HealthConnectManager(ctx: Context) {
         // 3) HRV por dia (media de las lecturas de ese dia).
         if (g.canRead(HeartRateVariabilityRmssdRecord::class)) {
             runCatching {
-                c.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, range))
-            }.getOrNull()?.records?.groupBy { it.time.atZone(zone).toLocalDate().toString() }?.forEach { (date, recs) ->
+                readAll(HeartRateVariabilityRmssdRecord::class, range)
+            }.getOrNull()?.groupBy { it.time.atZone(zone).toLocalDate().toString() }?.forEach { (date, recs) ->
                 val avg = recs.map { it.heartRateVariabilityMillis }.average()
                 if (avg > 0) out[date] = at(date).copy(hrv = Math.round(avg * 10) / 10.0)
             }
@@ -208,14 +222,39 @@ class HealthConnectManager(ctx: Context) {
         // 4) FC en reposo por dia (ultima lectura del dia).
         if (g.canRead(RestingHeartRateRecord::class)) {
             runCatching {
-                c.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range, ascendingOrder = true))
-            }.getOrNull()?.records?.groupBy { it.time.atZone(zone).toLocalDate().toString() }?.forEach { (date, recs) ->
+                readAll(RestingHeartRateRecord::class, range)
+            }.getOrNull()?.groupBy { it.time.atZone(zone).toLocalDate().toString() }?.forEach { (date, recs) ->
                 val bpm = recs.last().beatsPerMinute.toInt()
                 if (bpm > 0) out[date] = at(date).copy(restingHr = bpm)
             }
         }
 
         return out
+    }
+
+    /** Lee todas las paginas de un tipo de registro (readRecords devuelve como mucho 1000 por pagina). */
+    private suspend fun <T : Record> readAll(type: KClass<T>, range: TimeRangeFilter, maxPages: Int = 20): List<T> {
+        val c = client ?: return emptyList()
+        val out = ArrayList<T>()
+        var token: String? = null
+        var pages = 0
+        do {
+            val resp = c.readRecords(ReadRecordsRequest(type, range, ascendingOrder = true, pageSize = 1000, pageToken = token))
+            out += resp.records
+            token = resp.pageToken
+            pages++
+        } while (token != null && pages < maxPages)
+        return out
+    }
+
+    /** Peso por dia (ultima lectura de cada dia) en [start]..[end], en kg con 1 decimal. */
+    suspend fun readDailyWeights(start: LocalDate, end: LocalDate): Map<String, Double> {
+        if (client == null || !granted().canRead(WeightRecord::class)) return emptyMap()
+        val range = TimeRangeFilter.between(start.atStartOfDay(zone).toInstant(), end.plusDays(1).atStartOfDay(zone).toInstant())
+        return runCatching { readAll(WeightRecord::class, range) }.getOrDefault(emptyList())
+            .groupBy { it.time.atZone(zone).toLocalDate().toString() }
+            .mapValues { (_, recs) -> Math.round(recs.last().weight.inKilograms * 10) / 10.0 }
+            .filterValues { it > 0 }
     }
 
     /** Fusiona intervalos solapados y devuelve las horas totales (1 decimal) o null si <= 0. */
