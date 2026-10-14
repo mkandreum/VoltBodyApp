@@ -43,7 +43,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     // Cristal real (desenfoque de lo que hay detras, RenderEffect en Android 12+)
-    implementation("dev.chrisbanes.haze:haze:1.6.10")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.navigation:navigation-compose:2.8.4")

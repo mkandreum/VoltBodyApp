@@ -29,6 +29,17 @@ import com.voltbody.app.data.Repository
 import com.voltbody.app.health.HealthSnapshot
 import com.voltbody.app.health.healthManager
 import com.voltbody.app.ui.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material3.Icon
+import com.voltbody.app.ui.v3.Card
+import com.voltbody.app.ui.v3.LimeButton
+import com.voltbody.app.ui.v3.MenuRow
+import com.voltbody.app.ui.v3.T
 import com.voltbody.app.ui.theme.Volt
 import com.voltbody.app.ui.theme.VoltType
 import com.voltbody.app.util.Notifications
@@ -59,36 +70,40 @@ private fun SmallButton(text: String, modifier: Modifier = Modifier, enabled: Bo
     ) { Text(text, color = if (enabled) c else c.copy(alpha = 0.4f), style = VoltType.body.copy(fontWeight = FontWeight.Bold)) }
 }
 
-/** Seccion "Salud": conexion con Health Connect (Samsung Health se sincroniza a traves de el). */
+/**
+ * Seccion "Salud": conexion con Health Connect (Samsung Health se sincroniza a traves de el).
+ * Una accion principal (importar el ultimo mes) y el resto como filas discretas; cifras en una linea.
+ */
 @Composable
 fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val manager = remember { ctx.healthManager }
     val prefs = remember { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
-    var enabled by remember { mutableStateOf(prefs.getBoolean("healthConnectEnabled", false)) }
     var availability by remember { mutableIntStateOf(runCatching { manager.availability() }.getOrDefault(1)) }
     var hasPerms by remember { mutableStateOf(false) }
     var snapshot by remember { mutableStateOf<HealthSnapshot?>(null) }
     var sleep by remember { mutableStateOf<Double?>(null) }
+    var updatedAt by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(false) }
+    val historyState = remember { com.voltbody.app.ui.screens.home.HealthState(ctx.applicationContext) }
 
     suspend fun refresh() {
         hasPerms = runCatching { manager.hasAnyPermission() }.getOrDefault(false)
         if (hasPerms) {
             snapshot = runCatching { manager.readToday() }.getOrNull()
-            sleep = runCatching { manager.readSleepLastNight() }.getOrNull()
+            sleep = snapshot?.sleepHours ?: runCatching { manager.readSleepLastNight() }.getOrNull()
+            updatedAt = java.time.LocalTime.now().toString().take(5)
         }
     }
     LaunchedEffect(Unit) { availability = runCatching { manager.availability() }.getOrDefault(1); refresh() }
 
-    val historyState = remember { com.voltbody.app.ui.screens.home.HealthState(ctx.applicationContext) }
     val contract = remember(manager) { manager.requestContract() }
     val launcher = rememberLauncherForActivityResult(contract) { granted: Set<String> ->
         scope.launch {
             val all = granted.containsAll(manager.permissions)
-            enabled = granted.isNotEmpty()
-            prefs.edit().putBoolean("healthConnectEnabled", enabled).apply()
+            prefs.edit().putBoolean("healthConnectEnabled", granted.isNotEmpty()).apply()
             refresh()
             if (granted.isNotEmpty()) {
                 com.voltbody.app.ui.screens.home.HealthState.resetMonthSync()
@@ -101,121 +116,142 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
     }
 
     val available = availability == HC_SDK_AVAILABLE
-    val connected = hasPerms
+    val connected = available && hasPerms
     val today = remember { LocalDate.now().toString() }
+    val s = snapshot
 
-    BentoCard(modifier.fillMaxWidth()) {
+    Card(modifier.fillMaxWidth(), padding = 18.dp) {
+        // Cabecera: icono, nombre y estado.
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Volt.danger.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Favorite, null, tint = Volt.danger, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Health Connect", color = Volt.text, style = VoltType.h2)
-                Text("Pasos, sueño, HRV, calorías y peso", color = Volt.textDim, style = VoltType.body)
+                Text("Health Connect", style = T.cardTitle.copy(fontSize = 16.sp), color = Volt.text)
+                Text("Pasos, sueño, HRV y peso", style = T.caption, color = Volt.textDim, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
-            StatusDot(connected)
-            Spacer(Modifier.width(6.dp))
-            Text(if (connected) "Conectado" else "No conectado", color = if (connected) Volt.accent else Volt.textDim, style = VoltType.label)
+            StatusChip(connected)
         }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Samsung Health se sincroniza con VoltBody a través de Health Connect: activa la sincronización con Health Connect en Samsung Health (Ajustes > Health Connect) y concede aquí los permisos.",
-            color = Volt.textDim, style = VoltType.body,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(10.dp),
-        )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
 
-        if (!available) {
-            Text(
-                if (availability == 2) "Health Connect necesita una actualización para funcionar." else "Health Connect no está instalado o no es compatible con este dispositivo.",
-                color = Volt.orange, style = VoltType.body,
-            )
-            Spacer(Modifier.height(10.dp))
-            SmallButton(if (availability == 2) "Actualizar Health Connect" else "Instalar Health Connect", Modifier.fillMaxWidth()) {
-                val pkg = "com.google.android.apps.healthdata"
-                val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                runCatching { ctx.startActivity(market) }.onFailure {
-                    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        when {
+            !available -> {
+                Text(
+                    if (availability == 2) "Health Connect necesita una actualización para funcionar."
+                    else "Health Connect no está instalado o no es compatible con este dispositivo.",
+                    style = T.body, color = Volt.text,
+                )
+                Spacer(Modifier.height(14.dp))
+                LimeButton(if (availability == 2) "Actualizar Health Connect" else "Instalar Health Connect", {
+                    val pkg = "com.google.android.apps.healthdata"
+                    val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { ctx.startActivity(market) }.onFailure {
+                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }
+                }, height = 50.dp)
+            }
+            !connected -> {
+                Text("Conecta para ver tus pasos, sueño y peso en VoltBody e importar tu último mes.", style = T.body, color = Volt.text)
+                Spacer(Modifier.height(14.dp))
+                LimeButton("Conectar Health Connect", { launcher.launch(manager.requestedPermissions) }, height = 50.dp)
+            }
+            else -> {
+                // Cifras de hoy: valor + unidad en una sola linea (sin cortes).
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HcStat(s?.steps?.let { com.voltbody.app.ui.v3.fmt(it) } ?: "—", null, "Pasos hoy", Modifier.weight(1f))
+                    HcStat(sleep?.let { String.format(java.util.Locale("es", "ES"), "%.1f", it) } ?: "—", if (sleep != null) "h" else null, "Sueño", Modifier.weight(1f))
+                    HcStat(s?.weightKg?.let { String.format(java.util.Locale("es", "ES"), "%.1f", it) } ?: "—", if (s?.weightKg != null) "kg" else null, "Peso", Modifier.weight(1f))
                 }
-            }
-            return@BentoCard
-        }
-
-        if (!connected) {
-            PrimaryButton("Conectar Health Connect", onClick = { launcher.launch(manager.requestedPermissions) })
-        } else {
-            val s = snapshot
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatPill("Pasos hoy", s?.steps?.toString() ?: "--", Modifier.weight(1f))
-                StatPill("Sueño", sleep?.let { "%.1f h".format(it) } ?: "--", Modifier.weight(1f), color = Volt.water)
-                StatPill("Peso HC", s?.weightKg?.let { "%.1f kg".format(it) } ?: "--", Modifier.weight(1f), color = Volt.orange)
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("Sincronizar peso", Modifier.weight(1f), enabled = !busy) {
-                    scope.launch {
-                        busy = true
-                        val snap = runCatching { manager.readToday() }.getOrNull().also { snapshot = it }
-                        val kg = snap?.weightKg
-                        if (kg != null && kg in 20.0..400.0) {
-                            repo.addWeight(today, Math.round(kg * 10) / 10.0)
-                            repo.toast("success", "Peso sincronizado", "%.1f kg desde Health Connect".format(kg))
-                        } else repo.toast("info", "Sin peso reciente", "No hay un registro de peso válido en Health Connect.")
-                        busy = false
+                updatedAt?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Actualizado a las $it", style = T.caption, color = Volt.textDim)
+                }
+                Spacer(Modifier.height(14.dp))
+                LimeButton(
+                    "Importar último mes", {
+                        scope.launch {
+                            importing = true
+                            com.voltbody.app.ui.screens.home.HealthState.resetMonthSync()
+                            when (historyState.syncLastMonth(repo)) {
+                                0 -> repo.toast("info", "Historial al día", "No hay datos nuevos en los últimos ${com.voltbody.app.ui.screens.home.HealthState.HISTORY_DAYS} días.")
+                                -1 -> repo.toast("error", "No se pudo leer Health Connect", "Revisa los permisos y vuelve a intentarlo.")
+                            }
+                            importing = false
+                        }
+                    }, height = 50.dp, loading = importing, icon = Icons.Outlined.CloudDownload,
+                )
+                Spacer(Modifier.height(6.dp))
+                MenuRow(Icons.Outlined.Refresh, "Actualizar ahora", "Pasos, sueño y peso de hoy") {
+                    if (!busy) scope.launch { busy = true; refresh(); repo.toast("success", "Datos actualizados", s?.let { "${it.steps} pasos" }); busy = false }
+                }
+                val hcKg = s?.weightKg
+                if (hcKg != null && hcKg in 20.0..400.0) {
+                    MenuRow(Icons.Outlined.MonitorWeight, "Usar peso de Health Connect", "Guardar ${trimNum(Math.round(hcKg * 10) / 10.0)} kg como peso de hoy") {
+                        if (!busy) scope.launch {
+                            busy = true
+                            if (repo.addWeight(today, Math.round(hcKg * 10) / 10.0)) repo.toast("success", "Peso guardado", "%.1f kg desde Health Connect".format(hcKg))
+                            busy = false
+                        }
                     }
                 }
-                SmallButton("Sincronizar sueño", Modifier.weight(1f), enabled = !busy) {
-                    scope.launch {
-                        busy = true
-                        sleep = runCatching { manager.readSleepLastNight() }.getOrNull()
-                        val h = sleep
-                        if (h != null) repo.toast("success", "Sueño sincronizado", "%.1f h anoche".format(h))
-                        else repo.toast("info", "Sin datos de sueño", "No hay sueño registrado para anoche.")
-                        busy = false
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("Sincronizar pasos", Modifier.weight(1f), enabled = !busy) {
-                    scope.launch {
-                        busy = true
-                        snapshot = runCatching { manager.readToday() }.getOrNull()
-                        val st = snapshot
-                        if (st != null) repo.toast("success", "Pasos sincronizados", "${st.steps} pasos · ${"%.1f".format(st.distanceKm)} km")
-                        else repo.toast("error", "No se pudo leer Health Connect")
-                        busy = false
-                    }
-                }
-                SmallButton("Enviar mi peso", Modifier.weight(1f), enabled = !busy) {
-                    scope.launch {
-                        busy = true
-                        val kg = repo.state.value.profile.weight
-                        if (kg != null) {
+                repo.state.value.profile.weight?.let { kg ->
+                    MenuRow(Icons.Outlined.Upload, "Enviar mi peso", "Escribir ${trimNum(kg)} kg en Health Connect") {
+                        if (!busy) scope.launch {
+                            busy = true
                             runCatching { manager.writeWeight(kg) }
                                 .onSuccess { repo.toast("success", "Peso enviado", "%.1f kg escrito en Health Connect".format(kg)) }
                                 .onFailure { repo.toast("error", "No se pudo escribir el peso", it.message) }
+                            busy = false
                         }
-                        busy = false
                     }
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            SmallButton(if (busy) "Importando…" else "Importar último mes", Modifier.fillMaxWidth(), enabled = !busy) {
-                scope.launch {
-                    busy = true
-                    com.voltbody.app.ui.screens.home.HealthState.resetMonthSync()
-                    when (historyState.syncLastMonth(repo)) {
-                        0 -> repo.toast("info", "Historial al día", "No hay datos nuevos en los últimos ${com.voltbody.app.ui.screens.home.HealthState.HISTORY_DAYS} días.")
-                        -1 -> repo.toast("error", "No se pudo leer Health Connect", "Revisa los permisos y vuelve a intentarlo.")
-                    }
-                    busy = false
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            SmallButton("Desconectar de VoltBody", Modifier.fillMaxWidth(), danger = true) {
-                enabled = false
-                prefs.edit().putBoolean("healthConnectEnabled", false).apply()
-                repo.toast("info", "Health Connect desconectado", "Puedes revocar los permisos desde los ajustes de Health Connect.")
             }
         }
+    }
+
+    // Ayuda de Samsung Health: texto discreto fuera de la tarjeta (antes era una caja gris ilegible).
+    Text(
+        "¿Usas Samsung Health? Activa la sincronización en Samsung Health › Ajustes › Health Connect y los datos llegarán aquí.",
+        style = T.caption, color = Volt.textDim, modifier = Modifier.padding(horizontal = 6.dp),
+    )
+    if (connected) {
+        Text(
+            "Desconectar de VoltBody", style = T.cardTitle, color = Volt.danger,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
+                prefs.edit().putBoolean("healthConnectEnabled", false).apply()
+                repo.toast("info", "Health Connect desconectado", "Puedes revocar los permisos desde los ajustes de Health Connect.")
+            }.padding(horizontal = 6.dp, vertical = 14.dp),
+        )
+    }
+}
+
+@Composable
+private fun StatusChip(ok: Boolean) {
+    val c = if (ok) Volt.accent else Volt.textDim
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(c.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(c))
+        Spacer(Modifier.width(6.dp))
+        Text(if (ok) "Conectado" else "Sin conectar", style = T.caption, color = c, maxLines = 1)
+    }
+}
+
+/** Cifra compacta: valor grande + unidad pequena en la misma linea y etiqueta debajo. */
+@Composable
+private fun HcStat(value: String, unit: String?, label: String, modifier: Modifier) {
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Volt.surface2).padding(horizontal = 12.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, style = T.value.copy(fontSize = 19.sp), color = Volt.text, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+            if (unit != null) {
+                Spacer(Modifier.width(3.dp))
+                Text(unit, style = T.caption, color = Volt.textDim, maxLines = 1, modifier = Modifier.alignByBaseline())
+            }
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(label, style = T.caption, color = Volt.textDim, maxLines = 1)
     }
 }
 

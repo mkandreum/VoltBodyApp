@@ -647,8 +647,16 @@ fun HeartRateCard() {
                 Spacer(Modifier.height(6.dp))
                 Text("Sensor Bluetooth (Polar, Garmin…)", color = Volt.textDim, style = VoltType.body)
             }
-            val label = when (state) { "connected" -> "live"; "connecting", "scanning" -> "…"; "error" -> "err"; else -> "off" }
-            StatPill("sensor", label, color = if (state == "connected") Volt.accent else Volt.textDim)
+            val label = when (state) { "connected" -> "En vivo"; "connecting", "scanning" -> "Buscando…"; "error" -> "Error"; else -> "Apagado" }
+            val c = when (state) { "connected" -> Volt.accent; "error" -> Volt.danger; else -> Volt.textDim }
+            Row(
+                Modifier.clip(CircleShape).background(c.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(7.dp).clip(CircleShape).background(c))
+                Spacer(Modifier.width(6.dp))
+                Text(label, color = c, style = VoltType.body.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            }
         }
         Spacer(Modifier.height(14.dp))
         AnimatedVisibility(state == "connected" && bpm != null) {

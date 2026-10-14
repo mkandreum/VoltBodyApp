@@ -48,8 +48,6 @@ import androidx.compose.ui.unit.dp
 import com.voltbody.app.data.Repository
 import com.voltbody.app.ui.theme.Volt
 import com.voltbody.app.util.Haptics
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Home("Inicio", Icons.Outlined.Home),
@@ -87,7 +85,6 @@ fun AppShell(repo: Repository) {
     val stack = remember { mutableStateListOf<Route>() }
     val nav = remember { Navigator(stack, { tab = it }) }
     val ctx = LocalContext.current
-    val hazeState = rememberHazeState()
 
     BackHandler(enabled = stack.isNotEmpty() || tab != Tab.Home) {
         if (stack.isNotEmpty()) nav.pop() else tab = Tab.Home
@@ -122,7 +119,7 @@ fun AppShell(repo: Repository) {
     CompositionLocalProvider(LocalNav provides nav) {
         Box(Modifier.fillMaxSize().background(Volt.bg)) {
             // Todo lo que queda detras de la hoja se captura como origen del cristal esmerilado.
-            Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
+            Box(Modifier.fillMaxSize()) {
                 // Pestanas: cambio rapido (fade + leve escala), sin deslizar toda la pantalla.
                 AnimatedContent(
                     targetState = tab, modifier = Modifier.fillMaxSize(),
@@ -185,7 +182,7 @@ fun AppShell(repo: Repository) {
             val section = stack.lastOrNull() as? Route.Section
             if (section != null) {
                 key(section.id) {
-                    GlassSheet(hazeState, onDismiss = { nav.pop() }) { SectionHost(repo, section.id) }
+                    GlassSheet(onDismiss = { nav.pop() }) { SectionHost(repo, section.id) }
                 }
             }
         }

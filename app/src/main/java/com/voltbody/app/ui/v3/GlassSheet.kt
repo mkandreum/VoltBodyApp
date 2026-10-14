@@ -70,10 +70,6 @@ import com.voltbody.app.ui.theme.LocalVolt
 import com.voltbody.app.ui.theme.Volt
 import com.voltbody.app.ui.theme.VoltColors
 import com.voltbody.app.util.Haptics
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -86,8 +82,8 @@ val LocalSheetClose = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 /** Paleta dentro de las hojas: superficies translucidas para que las tarjetas sean paneles de vidrio. */
 private fun glassPalette(base: VoltColors): VoltColors = base.copy(
-    surface = Color.White.copy(alpha = 0.06f),
-    surface2 = Color.White.copy(alpha = 0.09f),
+    surface = Color.White.copy(alpha = 0.05f),
+    surface2 = Color.White.copy(alpha = 0.08f),
     border = Color.White.copy(alpha = 0.10f),
 )
 
@@ -107,19 +103,21 @@ private fun SheetHandle() {
     }
 }
 
+/** Superficie de las hojas: casi opaca para que el texto tenga contraste sobre cualquier pantalla. */
+private val SheetSurface = Color(0xFA111113)
+
 /**
- * Hoja inferior de cristal esmerilado real: no es un ModalBottomSheet (que se dibuja en otra
- * ventana y no puede desenfocar el fondo), sino un overlay dentro de la misma composicion.
- * El fondo de la app lleva [dev.chrisbanes.haze.hazeSource] y aqui se aplica
- * [dev.chrisbanes.haze.hazeEffect], de modo que se ve la pantalla desenfocada detras.
+ * Hoja inferior como overlay dentro de la misma composicion (no ModalBottomSheet, para poder animarla
+ * y arrastrarla con total control). Sin desenfoque en vivo: el blur re-renderizaba el fondo en cada
+ * fotograma y ralentizaba la app; superficie oscura solida + telon, como pide DESIGN.md.
  *
- * - Entra con muelle y el desenfoque se "enfoca" al aparecer; haptico al abrir y cerrar.
+ * - Entra con muelle; haptico al abrir y cerrar. Todas las animaciones se leen en fase draw.
  * - Se cierra arrastrando hacia abajo (desde la cabecera o desde el contenido cuando esta arriba del todo),
  *   tocando el telon, con atras o con la X; si el arrastre no llega al umbral vuelve a su sitio con muelle.
  * - Sube con el teclado y su contenido usa paneles de vidrio ([LocalGlass]).
  */
 @Composable
-fun GlassSheet(haze: HazeState, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun GlassSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -198,14 +196,6 @@ fun GlassSheet(haze: HazeState, onDismiss: () -> Unit, content: @Composable Colu
         }
     }
 
-    // El desenfoque (y el tinte) se animan: el cristal se "esmerila" al entrar.
-    val glass = HazeStyle(
-        backgroundColor = Color(0xE00E0E0E),
-        tint = HazeTint(Color.White.copy(alpha = 0.03f + 0.05f * a.value)),
-        blurRadius = (4f + 40f * a.value).dp,
-        noiseFactor = 0.12f,
-        fallbackTint = HazeTint(Color(0xF50E0E0E)),
-    )
     val base = Volt
     val palette = remember(base) { glassPalette(base) }
 
@@ -215,7 +205,7 @@ fun GlassSheet(haze: HazeState, onDismiss: () -> Unit, content: @Composable Colu
             Modifier.fillMaxSize()
                 .graphicsLayer {
                     val pulled = if (sheetH > 0) (drag / sheetH).coerceIn(0f, 1f) else 0f
-                    alpha = 0.55f * a.value * (1f - pulled)
+                    alpha = 0.62f * a.value * (1f - pulled)
                 }
                 .background(Color.Black)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { close() },
@@ -233,7 +223,7 @@ fun GlassSheet(haze: HazeState, onDismiss: () -> Unit, content: @Composable Colu
                     transformOrigin = TransformOrigin(0.5f, 1f)
                 }
                 .clip(SheetShape)
-                .hazeEffect(haze, glass)
+                .background(SheetSurface)
                 .heightIn(max = maxH)
                 .nestedScroll(nested)
                 .draggable(dragState, Orientation.Vertical, onDragStopped = { v -> settle(v) }),
@@ -308,7 +298,7 @@ fun VoltModalSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() ->
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = SheetShape,
-        containerColor = Color(0xFA121214),
+        containerColor = SheetSurface,
         contentColor = base.text,
         scrimColor = Color.Black.copy(alpha = 0.55f),
         tonalElevation = 0.dp,

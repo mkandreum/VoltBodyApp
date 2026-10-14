@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
-import dev.chrisbanes.haze.hazeSource
 import com.voltbody.app.data.*
 import com.voltbody.app.ui.screens.*
 import com.voltbody.app.ui.theme.Volt
@@ -88,15 +87,15 @@ class ScreenShots {
 
     /** Hoja de cristal sobre una pantalla real (con desenfoque), como en la app. */
     private fun sheetShot(name: String, behind: @Composable (Repository) -> Unit, sheet: @Composable (Repository) -> Unit) = shot(name) { repo ->
-        val haze = dev.chrisbanes.haze.rememberHazeState()
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().hazeSource(haze)) { behind(repo) }
-            com.voltbody.app.ui.v3.GlassSheet(haze, onDismiss = {}) { sheet(repo) }
+            Box(Modifier.fillMaxSize()) { behind(repo) }
+            com.voltbody.app.ui.v3.GlassSheet(onDismiss = {}) { sheet(repo) }
         }
     }
 
     @Test fun shopping() = sheetShot("sheet_shopping", { com.voltbody.app.ui.v3.NutritionV3(it) }) { com.voltbody.app.ui.v3.ShoppingSheet(it) }
     @Test fun trends() = sheetShot("sheet_trends", { com.voltbody.app.ui.v3.ActivityV3(it) }) { com.voltbody.app.ui.v3.TrendsSheet(it) }
+    @Test fun health() = sheetShot("sheet_health", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "health") }
     @Test fun weight() = sheetShot("sheet_weight", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "weight") }
 
     @Test fun login() = shot("login") { com.voltbody.app.ui.v3.LoginV3(it) }
