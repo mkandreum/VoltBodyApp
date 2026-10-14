@@ -1,94 +1,114 @@
 package com.voltbody.app.ui.screens
 
-import android.app.TimePickerDialog
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Cake
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.Female
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Male
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Scale
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voltbody.app.data.*
+import com.voltbody.app.ui.BigNumberPicker
+import com.voltbody.app.ui.EaseOutExpo
+import com.voltbody.app.ui.GradientText
+import com.voltbody.app.ui.MeshBackground
+import com.voltbody.app.ui.PrimaryButton
+import com.voltbody.app.ui.RollingNumber
+import com.voltbody.app.ui.SegmentedProgress
 import com.voltbody.app.ui.VoltChip
+import com.voltbody.app.ui.gradientBorder
 import com.voltbody.app.ui.pressScale
-import com.voltbody.app.ui.rememberPulse
 import com.voltbody.app.ui.screens.auth.GeneratingPlanScreen
-import com.voltbody.app.ui.screens.auth.ambientGlow
+import com.voltbody.app.ui.shake
 import com.voltbody.app.ui.staggeredEntry
 import com.voltbody.app.ui.theme.Volt
-import com.voltbody.app.ui.voltFieldColors
+import com.voltbody.app.ui.theme.VoltType
+import com.voltbody.app.ui.theme.shiftHue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
-private data class StepInfo(val title: String, val subtitle: String)
+private enum class Pg { Name, Age, Gender, Weight, Height, Experience, Goal, Direction, Target, Months, Days, Minutes, Work, Meals, Foods, Special, Dish }
 
-private val STEPS = listOf(
-    StepInfo("Tus Datos", "Información básica para personalizar tu perfil"),
-    StepInfo("Tu Cuerpo", "Medidas corporales y experiencia actual"),
-    StepInfo("Tu Objetivo", "Define tu meta física y horizonte temporal"),
-    StepInfo("Entrenamiento", "Frecuencia y duración de tus sesiones"),
-    StepInfo("Horarios", "Organización de tus comidas y jornadas"),
-    StepInfo("Nutrición", "Alimentos favoritos y platos especiales"),
+private class PageInfo(val pg: Pg, val kicker: String, val title: String, val sub: String)
+
+private val PAGES = listOf(
+    PageInfo(Pg.Name, "TUS DATOS", "¿Cómo te llamas?", "Para hablarte por tu nombre."),
+    PageInfo(Pg.Age, "TUS DATOS", "¿Qué edad tienes?", "Desliza para elegir."),
+    PageInfo(Pg.Gender, "TUS DATOS", "Tu género biológico", "Ajusta calorías y cargas."),
+    PageInfo(Pg.Weight, "TU CUERPO", "¿Cuánto pesas?", "Tu punto de partida."),
+    PageInfo(Pg.Height, "TU CUERPO", "¿Cuánto mides?", "En centímetros."),
+    PageInfo(Pg.Experience, "TU CUERPO", "¿Cuánta experiencia tienes?", "Sé sincero, adaptamos el plan."),
+    PageInfo(Pg.Goal, "TU OBJETIVO", "¿Qué quieres conseguir?", "Tu meta principal."),
+    PageInfo(Pg.Direction, "TU OBJETIVO", "¿Subir o bajar de peso?", "Define la dirección."),
+    PageInfo(Pg.Target, "TU OBJETIVO", "¿Cuántos kilos?", "Cantidad a modificar."),
+    PageInfo(Pg.Months, "TU OBJETIVO", "¿En cuánto tiempo?", "Plazo estimado en meses."),
+    PageInfo(Pg.Days, "ENTRENAMIENTO", "¿Cuántos días entrenas?", "A la semana."),
+    PageInfo(Pg.Minutes, "ENTRENAMIENTO", "¿Cuánto dura cada sesión?", "Sesiones compactas y efectivas."),
+    PageInfo(Pg.Work, "HORARIOS", "¿Cuál es tu jornada?", "Trabajo o estudio."),
+    PageInfo(Pg.Meals, "HORARIOS", "¿A qué hora comes?", "Toca una comida para cambiar la hora."),
+    PageInfo(Pg.Foods, "NUTRICIÓN", "¿Qué te gusta comer?", "Separa con comas."),
+    PageInfo(Pg.Special, "NUTRICIÓN", "¿Una clase especial?", "Pádel, fútbol, zumba, natación…"),
+    PageInfo(Pg.Dish, "NUTRICIÓN", "¿Un plato especial?", "Opcional. Lo incluimos en tu dieta."),
 )
 
 private data class Experience(val title: String, val desc: String, val emoji: String)
@@ -157,54 +177,65 @@ private fun rememberForm(initial: Profile, userName: String?): Form {
 
 private fun parseNum(s: String): Double? = s.trim().replace(',', '.').toDoubleOrNull()
 private fun splitList(s: String): List<String> = s.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+private fun fmtNum(v: Float): String = if (v % 1f == 0f) v.toInt().toString() else v.toString()
 
-/** Wizard de alta: 6 pasos + generación del plan con IA. Validaciones idénticas a las del servidor. */
+/** Onboarding estilo "stories": una pregunta por pantalla + generación del plan con IA. Validaciones idénticas a las del servidor. */
 @Composable
 fun OnboardingScreen(repo: Repository) {
-    val st by repo.state.collectAsState()
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val f = rememberForm(repo.state.value.profile, repo.state.value.user?.name)
-    var step by rememberSaveable { mutableStateOf(0) }
+    var page by rememberSaveable { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
+    var errTick by remember { mutableIntStateOf(0) }
     val errors = remember { mutableStateMapOf<String, String>() }
+    var timeVisible by remember { mutableStateOf(false) }
+    var timeTarget by remember { mutableIntStateOf(0) }
+    val meals = listOf(f.breakfast, f.brunch, f.lunch, f.snack, f.dinner)
 
-    fun validate(s: Int): Boolean {
+    fun validate(pg: Pg): Boolean {
         errors.clear()
-        when (s) {
-            0 -> {
+        when (pg) {
+            Pg.Name -> {
                 val n = f.name.value.trim()
                 if (n.isEmpty()) errors["name"] = "Introduce tu nombre para continuar"
                 else if (n.length > 80) errors["name"] = "El nombre no puede superar 80 caracteres"
+            }
+            Pg.Age -> {
                 val a = f.age.value.trim().toIntOrNull()
                 if (a == null || a < 12 || a > 100) errors["age"] = "La edad debe estar entre 12 y 100"
             }
-            1 -> {
+            Pg.Weight -> {
                 val w = parseNum(f.weight.value)
                 if (w == null || w < 30 || w > 350) errors["weight"] = "Entre 30 y 350 kg"
+            }
+            Pg.Height -> {
                 val h = parseNum(f.height.value)
                 if (h == null || h < 120 || h > 250) errors["height"] = "Entre 120 y 250 cm"
             }
-            2 -> {
+            Pg.Target -> {
                 val t = parseNum(f.target.value)
                 if (t == null || t < 1 || t > 50) errors["target"] = "Entre 1 y 50 kg"
+            }
+            Pg.Months -> {
                 val m = f.months.value.trim().toIntOrNull()
                 if (m == null || m < 1 || m > 24) errors["months"] = "Entre 1 y 24 meses"
             }
-            4 -> if (f.workHours.value.length > 120) errors["workHours"] = "Máximo 120 caracteres"
-            5 -> {
+            Pg.Work -> if (f.workHours.value.length > 120) errors["workHours"] = "Máximo 120 caracteres"
+            Pg.Dish -> {
                 val k = f.dishKcal.value.trim()
                 if (k.isNotEmpty() && (k.toIntOrNull()?.let { it < 50 || it > 3000 } != false)) errors["dishKcal"] = "Entre 50 y 3000 kcal"
             }
+            else -> Unit
         }
-        if (errors.isNotEmpty()) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (errors.isNotEmpty()) { errTick++; haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
         return errors.isEmpty()
     }
 
     fun buildProfile(): Profile {
         val goal = f.goal.value
         val dish = f.dish.value.trim()
-        return st.profile.copy(
+        return repo.state.value.profile.copy(
             name = f.name.value.trim(),
             age = f.age.value.trim().toIntOrNull() ?: 25,
             weight = parseNum(f.weight.value) ?: 70.0,
@@ -260,317 +291,262 @@ fun OnboardingScreen(repo: Repository) {
 
     fun next() {
         if (loading) return
-        if (!validate(step)) return
-        if (step < STEPS.lastIndex) step++ else generate()
+        if (!validate(PAGES[page].pg)) return
+        if (page < PAGES.lastIndex) page++ else generate()
     }
 
-    fun back() { if (step > 0 && !loading) { errors.clear(); step-- } }
+    fun back() { if (page > 0 && !loading) { errors.clear(); page-- } }
 
-    BackHandler(enabled = loading || step > 0) { if (!loading) back() }
+    BackHandler(enabled = loading || page > 0 || timeVisible) { if (timeVisible) timeVisible = false else if (!loading) back() }
 
-    val glow = Volt.accent.copy(alpha = 0.10f)
-    Box(Modifier.fillMaxSize().ambientGlow(glow, Offset(1000f, 300f), 700f)) {
+    val shift = page * 9f
+    val ca = animateColorAsState(Volt.accent.shiftHue(shift), tween(800), label = "hueA")
+    val cb = animateColorAsState(Volt.accent2.shiftHue(shift), tween(800), label = "hueB")
+
+    Box(Modifier.fillMaxSize()) {
+        MeshBackground(Modifier.fillMaxSize(), colorA = { ca.value }, colorB = { cb.value }, intensity = 0.85f)
         AnimatedContent(
             targetState = loading,
-            transitionSpec = { fadeIn(tween(350)) togetherWith fadeOut(tween(250)) },
+            transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(250)) },
             label = "onbLoading",
+            modifier = Modifier.fillMaxSize(),
         ) { isLoading ->
             if (isLoading) GeneratingPlanScreen()
-            else Column(Modifier.fillMaxSize().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                StepHeader(step, onBack = { back() }, onJump = { if (it < step) { errors.clear(); step = it } })
-                Spacer(Modifier.height(14.dp))
-                Box(
-                    Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Volt.surface)
-                        .border(1.dp, Volt.border, RoundedCornerShape(28.dp)),
-                ) {
-                    AnimatedContent(
-                        targetState = step,
-                        transitionSpec = {
-                            val fwd = targetState > initialState
-                            (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { if (fwd) it / 3 else -it / 3 } + fadeIn(tween(320))) togetherWith
-                                (slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { if (fwd) -it / 3 else it / 3 } + fadeOut(tween(180)))
-                        },
-                        label = "onbStep",
-                    ) { s ->
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
-                            Text("PASO ${s + 1} DE ${STEPS.size}", color = Volt.accent, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
-                            Text(STEPS[s].title, color = Volt.text, fontSize = 26.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
-                            Text(STEPS[s].subtitle, color = Volt.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 20.dp))
-                            when (s) {
-                                0 -> StepBasics(f, errors)
-                                1 -> StepBody(f, errors)
-                                2 -> StepGoal(f, errors)
-                                3 -> StepTraining(f)
-                                4 -> StepSchedule(f, errors)
-                                else -> StepNutrition(f, errors)
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                val last = step == STEPS.lastIndex
-                val pulse by rememberPulse(1f, 1.025f, 900)
-                Button(
-                    onClick = { next() },
-                    modifier = Modifier.fillMaxWidth().height(54.dp).scale(if (last) pulse else 1f),
-                    shape = RoundedCornerShape(27.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Volt.accent, contentColor = Color.Black),
-                ) {
-                    Text(if (last) "Generar mi plan con IA" else "Continuar", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(if (last) Icons.Filled.AutoAwesome else Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StepHeader(step: Int, onBack: () -> Unit, onJump: (Int) -> Unit) {
-    val backAlpha by animateFloatAsState(if (step == 0) 0f else 1f, tween(250), label = "backA")
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Box(
-            Modifier.size(44.dp).alpha(backAlpha).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.06f))
-                .border(1.dp, Volt.border, RoundedCornerShape(16.dp)).clickable(enabled = step > 0, onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Paso anterior", tint = Volt.text, modifier = Modifier.size(20.dp)) }
-
-        Row(
-            Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.4f)).border(1.dp, Volt.border, CircleShape).padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(STEPS.size) { i ->
-                val w by animateDpAsState(if (i == step) 24.dp else 8.dp, tween(300, easing = FastOutSlowInEasing), label = "dotW")
-                val c by animateColorAsState(
-                    when { i == step -> Volt.accent; i < step -> Volt.accent.copy(alpha = 0.4f); else -> Color.White.copy(alpha = 0.2f) },
-                    tween(300), label = "dotC",
-                )
-                Box(Modifier.height(8.dp).width(w).clip(CircleShape).background(c).clickable(enabled = i < step) { onJump(i) })
-            }
-        }
-        Text("${step + 1}/${STEPS.size}", color = Volt.textDim, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
-    }
-}
-
-// ───────────────────────── Pasos ─────────────────────────
-
-@Composable
-private fun StepBasics(f: Form, errors: MutableMap<String, String>) {
-    val haptic = LocalHapticFeedback.current
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Box(Modifier.staggeredEntry(0)) {
-            ObField(f.name.value, { f.name.value = it.take(80); errors.remove("name") }, "¿Cómo te llamas?", Icons.Filled.Person, errors["name"], placeholder = "Tu nombre o apodo")
-        }
-        Box(Modifier.staggeredEntry(1)) {
-            ObField(f.age.value, { f.age.value = it.filter(Char::isDigit).take(3); errors.remove("age") }, "Edad (años)", Icons.Filled.Cake, errors["age"], KeyboardType.Number)
-        }
-        Column(Modifier.staggeredEntry(2)) {
-            Text("Género biológico", color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf("Masculino" to "♂️ Masculino", "Femenino" to "♀️ Femenino").forEach { (v, label) ->
-                    Choice(f.gender.value == v, { f.gender.value = v; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, Modifier.weight(1f)) {
-                        Box(Modifier.fillMaxWidth().heightIn(min = 36.dp), contentAlignment = Alignment.Center) {
-                            Text(label, color = Volt.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StepBody(f: Form, errors: MutableMap<String, String>) {
-    val haptic = LocalHapticFeedback.current
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(Modifier.staggeredEntry(0), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.weight(1f)) {
-                ObField(f.weight.value, { f.weight.value = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6); errors.remove("weight") }, "Peso (kg)", Icons.Filled.Scale, errors["weight"], KeyboardType.Decimal)
-            }
-            Box(Modifier.weight(1f)) {
-                ObField(f.height.value, { f.height.value = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6); errors.remove("height") }, "Altura (cm)", Icons.Filled.Straighten, errors["height"], KeyboardType.Decimal)
-            }
-        }
-        Text("Nivel de experiencia", color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp).staggeredEntry(1))
-        EXPERIENCES.forEachIndexed { i, e ->
-            Choice(f.experience.value.startsWith(e.title), { f.experience.value = "${e.title} (${e.desc})"; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, Modifier.staggeredEntry(i + 2)) {
+            else Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().navigationBarsPadding().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(e.emoji, fontSize = 22.sp)
+                    val backA = animateFloatAsState(if (page == 0) 0f else 1f, tween(250), label = "backA")
+                    Box(
+                        Modifier.size(44.dp).graphicsLayer { alpha = backA.value }.clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
+                            .clickable(enabled = page > 0) { back() },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Paso anterior", tint = Volt.text, modifier = Modifier.size(22.dp)) }
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(e.title, color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(e.desc, color = Volt.textDim, fontSize = 12.sp)
-                    }
-                    CheckDot(f.experience.value.startsWith(e.title))
+                    SegmentedProgress(PAGES.size, page, Modifier.weight(1f), onJump = { if (it < page) { errors.clear(); page = it } })
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StepGoal(f: Form, errors: MutableMap<String, String>) {
-    val haptic = LocalHapticFeedback.current
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Meta principal", color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
-        GOALS.chunked(2).forEachIndexed { r, pair ->
-            Row(Modifier.height(IntrinsicSize.Min).staggeredEntry(r), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                pair.forEach { g ->
-                    val sel = f.goal.value.contains(g.title)
-                    Choice(sel, {
-                        f.goal.value = "${g.title} (${g.sub})"
-                        // sugerencia coherente de dirección (editable después)
-                        f.direction.value = if (g.title.contains("Perder")) "Perder" else "Ganar"
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    }, Modifier.weight(1f).fillMaxHeight()) {
-                        Column {
-                            Box(
-                                Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(if (sel) Volt.accent else Color.White.copy(alpha = 0.06f)),
-                                contentAlignment = Alignment.Center,
-                            ) { Icon(g.icon, null, tint = if (sel) Color.Black else Volt.textDim, modifier = Modifier.size(20.dp)) }
-                            Spacer(Modifier.height(10.dp))
-                            Text(g.title, color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text(g.sub, color = Volt.textDim, fontSize = 11.sp)
+                Spacer(Modifier.height(16.dp))
+                AnimatedContent(
+                    targetState = page,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    transitionSpec = {
+                        val dir = if (targetState > initialState) 1 else -1
+                        (slideInHorizontally(tween(480, easing = EaseOutExpo)) { (dir * it * 0.6f).toInt() } + fadeIn(tween(320))) togetherWith
+                            (slideOutHorizontally(tween(380, easing = EaseOutExpo)) { (-dir * it * 0.25f).toInt() } + fadeOut(tween(160)))
+                    },
+                    label = "onbPage",
+                ) { p ->
+                    val info = PAGES[p]
+                    Column(Modifier.fillMaxSize()) {
+                        Column(Modifier.staggeredEntry(0)) {
+                            Text(info.kicker, color = Volt.accent, style = VoltType.label)
+                            Spacer(Modifier.height(8.dp))
+                            Text(info.title, color = Volt.text, style = VoltType.display.copy(fontSize = 38.sp, lineHeight = 40.sp))
+                            Spacer(Modifier.height(6.dp))
+                            Text(info.sub, color = Volt.textDim, style = VoltType.body)
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Box(Modifier.weight(1f).fillMaxWidth().staggeredEntry(1).shake(errTick)) {
+                            PageBody(info.pg, f, errors, meals, onOpenTime = { timeTarget = it; timeVisible = true }, onDone = { next() })
                         }
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+                PrimaryButton(if (page == PAGES.lastIndex) "Generar mi plan" else "Continuar", onClick = { next() })
             }
         }
-        Column(
-            Modifier.staggeredEntry(3).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.35f))
-                .border(1.dp, Volt.border, RoundedCornerShape(20.dp)).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Dirección del peso", color = Volt.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                listOf("Perder", "Ganar").forEach { d ->
-                    VoltChip(d, f.direction.value == d, { f.direction.value = d; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, Modifier.padding(start = 6.dp))
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) {
-                    ObField(f.target.value, { f.target.value = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(5); errors.remove("target") }, "Cantidad a modificar", null, errors["target"], KeyboardType.Decimal, suffix = "kg")
-                }
-                Box(Modifier.weight(1f)) {
-                    ObField(f.months.value, { f.months.value = it.filter(Char::isDigit).take(2); errors.remove("months") }, "Plazo estimado", null, errors["months"], KeyboardType.Number, suffix = "meses")
-                }
-            }
-        }
-    }
-}
 
-@Composable
-private fun StepTraining(f: Form) {
-    val haptic = LocalHapticFeedback.current
-    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Column(Modifier.staggeredEntry(0)) {
-            Row(Modifier.padding(horizontal = 4.dp, vertical = 0.dp).padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Días de entrenamiento / semana", color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text("${f.days.value} días", color = Volt.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(2, 3, 4, 5, 6).forEach { d ->
-                    NumberBox("${d}d", f.days.value == d, { f.days.value = d; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, Modifier.weight(1f))
-                }
-            }
-        }
-        Column(Modifier.staggeredEntry(1)) {
-            Row(Modifier.padding(horizontal = 4.dp).padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Duración por sesión", color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text("${f.minutes.value} min", color = Volt.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(30, 45, 60, 90).forEach { m ->
-                    NumberBox("${m}m", f.minutes.value == m, { f.minutes.value = m; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, Modifier.weight(1f))
-                }
-            }
-        }
-        Row(
-            Modifier.staggeredEntry(2).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.accent.copy(alpha = 0.10f))
-                .border(1.dp, Volt.accent.copy(alpha = 0.25f), RoundedCornerShape(20.dp)).padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        AnimatedVisibility(
+            timeVisible && !loading, enter = fadeIn(tween(200)), exit = fadeOut(tween(160)), modifier = Modifier.fillMaxSize(),
         ) {
-            Icon(Icons.Filled.AutoAwesome, null, tint = Volt.accent, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(
-                androidx.compose.ui.text.buildAnnotatedString {
-                    append("Diseñaremos un microciclo de ")
-                    pushStyle(androidx.compose.ui.text.SpanStyle(color = Volt.accent, fontWeight = FontWeight.Bold)); append("${f.days.value} días"); pop()
-                    append(" con sesiones compactas de ")
-                    pushStyle(androidx.compose.ui.text.SpanStyle(color = Volt.accent, fontWeight = FontWeight.Bold)); append("${f.minutes.value} minutos"); pop()
-                    append(".")
-                },
-                color = Volt.text, fontSize = 12.sp, lineHeight = 17.sp,
+            TimeSheet(
+                title = listOf("Desayuno", "Media mañana", "Comida", "Merienda", "Cena")[timeTarget],
+                initial = meals[timeTarget].value,
+                onDone = { meals[timeTarget].value = it; timeVisible = false },
+                onDismiss = { timeVisible = false },
             )
         }
     }
 }
 
-@Composable
-private fun StepSchedule(f: Form, errors: MutableMap<String, String>) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Box(Modifier.staggeredEntry(0)) {
-            ObField(f.workHours.value, { f.workHours.value = it.take(120); errors.remove("workHours") }, "Horario laboral / estudio", Icons.Filled.Schedule, errors["workHours"], placeholder = "Ej. 09:00 - 18:00")
-        }
-        Column(
-            Modifier.staggeredEntry(1).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.35f))
-                .border(1.dp, Volt.border, RoundedCornerShape(20.dp)).padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("HORARIOS DE INGESTA", color = Volt.textDim, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
-            MealTimeRow("Desayuno", Icons.Filled.Coffee, f.breakfast.value) { f.breakfast.value = it }
-            MealTimeRow("Media mañana", Icons.Filled.Fastfood, f.brunch.value) { f.brunch.value = it }
-            MealTimeRow("Comida", Icons.Filled.WbSunny, f.lunch.value) { f.lunch.value = it }
-            MealTimeRow("Merienda", Icons.Filled.Restaurant, f.snack.value) { f.snack.value = it }
-            MealTimeRow("Cena", Icons.Filled.NightsStay, f.dinner.value) { f.dinner.value = it }
-        }
-    }
-}
+// ───────────────────────── Contenido de cada pregunta ─────────────────────────
 
 @Composable
-private fun StepNutrition(f: Form, errors: MutableMap<String, String>) {
+private fun BoxScope.PageBody(
+    pg: Pg, f: Form, errors: MutableMap<String, String>, meals: List<MutableState<String>>,
+    onOpenTime: (Int) -> Unit, onDone: () -> Unit,
+) {
     val haptic = LocalHapticFeedback.current
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Box(Modifier.staggeredEntry(0)) { ObField(f.vegs.value, { f.vegs.value = it }, "Verduras y vegetales preferidos", null, null, placeholder = "Ej: brócoli, espinaca, tomate") }
-        Box(Modifier.staggeredEntry(1)) { ObField(f.carbs.value, { f.carbs.value = it }, "Carbohidratos", null, null, placeholder = "Arroz, papa, avena") }
-        Box(Modifier.staggeredEntry(2)) { ObField(f.prots.value, { f.prots.value = it }, "Proteínas", null, null, placeholder = "Pollo, huevo, atún") }
+    when (pg) {
+        Pg.Name -> BigTextField(f.name.value, { f.name.value = it.take(80); errors.remove("name") }, "Tu nombre o apodo", errors["name"], imeAction = ImeAction.Done, onDone = onDone)
 
-        Column(
-            Modifier.staggeredEntry(3).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.35f))
-                .border(1.dp, Volt.border, RoundedCornerShape(20.dp)).padding(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Clase especial semanal", color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text("Pádel, fútbol, zumba, natación...", color = Volt.textDim, fontSize = 11.sp)
+        Pg.Age -> BigNumberPicker(
+            (f.age.value.toIntOrNull() ?: 25).toFloat().coerceIn(12f, 100f),
+            { f.age.value = it.roundToInt().toString(); errors.remove("age") }, 12f..100f, Modifier.align(Alignment.Center), unit = "años",
+        )
+
+        Pg.Gender -> Row(Modifier.fillMaxWidth().height(230.dp).align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            listOf("Masculino" to Icons.Filled.Male, "Femenino" to Icons.Filled.Female).forEach { (v, icon) ->
+                Tile(f.gender.value == v, { f.gender.value = v }, Modifier.weight(1f).fillMaxHeight()) { fg, _ ->
+                    Spacer(Modifier.weight(1f))
+                    Icon(icon, null, tint = fg, modifier = Modifier.size(64.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Text(v, color = fg, style = VoltType.title)
                 }
-                Switch(
-                    checked = f.specialOn.value,
-                    onCheckedChange = { f.specialOn.value = it; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Volt.accent, uncheckedThumbColor = Color.White, uncheckedTrackColor = Volt.surface2, uncheckedBorderColor = Volt.border),
-                )
+            }
+        }
+
+        Pg.Weight -> BigNumberPicker(
+            (parseNum(f.weight.value) ?: 70.0).toFloat().coerceIn(30f, 350f),
+            { f.weight.value = fmtNum(it); errors.remove("weight") }, 30f..350f, Modifier.align(Alignment.Center), step = 0.5f, unit = "kg",
+        )
+
+        Pg.Height -> BigNumberPicker(
+            (parseNum(f.height.value) ?: 175.0).toFloat().coerceIn(120f, 250f),
+            { f.height.value = fmtNum(it); errors.remove("height") }, 120f..250f, Modifier.align(Alignment.Center), unit = "cm",
+        )
+
+        Pg.Experience -> Column(Modifier.fillMaxWidth().align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            EXPERIENCES.forEach { e ->
+                Tile(f.experience.value.startsWith(e.title), { f.experience.value = "${e.title} (${e.desc})" }, Modifier.fillMaxWidth()) { fg, dim ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(e.emoji, fontSize = 34.sp)
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(e.title, color = fg, style = VoltType.h2)
+                            Text(e.desc, color = dim, style = VoltType.body)
+                        }
+                    }
+                }
+            }
+        }
+
+        Pg.Goal -> Column(Modifier.fillMaxWidth().align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            GOALS.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth().height(170.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    pair.forEach { g ->
+                        Tile(f.goal.value.contains(g.title), {
+                            f.goal.value = "${g.title} (${g.sub})"
+                            // sugerencia coherente de dirección (editable después)
+                            f.direction.value = if (g.title.contains("Perder")) "Perder" else "Ganar"
+                        }, Modifier.weight(1f).fillMaxHeight()) { fg, dim ->
+                            Icon(g.icon, null, tint = fg, modifier = Modifier.size(38.dp))
+                            Spacer(Modifier.weight(1f))
+                            Text(g.title, color = fg, style = VoltType.title)
+                            Text(g.sub, color = dim, style = VoltType.body.copy(fontSize = 12.sp))
+                        }
+                    }
+                }
+            }
+        }
+
+        Pg.Direction -> Row(Modifier.fillMaxWidth().height(230.dp).align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            listOf(Triple("Perder", "Bajar de peso", Icons.Filled.TrendingDown), Triple("Ganar", "Subir de peso", Icons.Filled.TrendingUp)).forEach { (v, label, icon) ->
+                Tile(f.direction.value == v, { f.direction.value = v }, Modifier.weight(1f).fillMaxHeight()) { fg, _ ->
+                    Spacer(Modifier.weight(1f))
+                    Icon(icon, null, tint = fg, modifier = Modifier.size(56.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Text(label, color = fg, style = VoltType.title)
+                }
+            }
+        }
+
+        Pg.Target -> GiantSlider(
+            (parseNum(f.target.value) ?: 5.0).toFloat().coerceIn(1f, 50f), { f.target.value = it.roundToInt().toString(); errors.remove("target") },
+            1f..50f, "kg", errors["target"], Modifier.align(Alignment.Center),
+        )
+
+        Pg.Months -> GiantSlider(
+            (f.months.value.toIntOrNull() ?: 3).toFloat().coerceIn(1f, 24f), { f.months.value = it.roundToInt().toString(); errors.remove("months") },
+            1f..24f, "meses", errors["months"], Modifier.align(Alignment.Center),
+        )
+
+        Pg.Days -> Column(Modifier.fillMaxWidth().align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf(listOf(2, 3, 4), listOf(5, 6)).forEach { rowDays ->
+                Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowDays.forEach { d ->
+                        Tile(f.days.value == d, { f.days.value = d }, Modifier.weight(1f).fillMaxHeight()) { fg, dim ->
+                            Spacer(Modifier.weight(1f))
+                            Text("$d", color = fg, style = VoltType.numberXL.copy(fontSize = 52.sp, lineHeight = 54.sp))
+                            Text("días", color = dim, style = VoltType.body)
+                        }
+                    }
+                    if (rowDays.size < 3) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+
+        Pg.Minutes -> Column(Modifier.fillMaxWidth().align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf(listOf(30, 45), listOf(60, 90)).forEach { rowMin ->
+                Row(Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowMin.forEach { m ->
+                        Tile(f.minutes.value == m, { f.minutes.value = m }, Modifier.weight(1f).fillMaxHeight()) { fg, dim ->
+                            Spacer(Modifier.weight(1f))
+                            Text("$m", color = fg, style = VoltType.numberXL.copy(fontSize = 52.sp, lineHeight = 54.sp))
+                            Text("minutos", color = dim, style = VoltType.body)
+                        }
+                    }
+                }
+            }
+        }
+
+        Pg.Work -> BigTextField(f.workHours.value, { f.workHours.value = it.take(120); errors.remove("workHours") }, "09:00 - 18:00", errors["workHours"], imeAction = ImeAction.Done, onDone = onDone)
+
+        Pg.Meals -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val rows = listOf(
+                "Desayuno" to Icons.Filled.Coffee, "Media mañana" to Icons.Filled.Fastfood, "Comida" to Icons.Filled.WbSunny,
+                "Merienda" to Icons.Filled.Restaurant, "Cena" to Icons.Filled.NightsStay,
+            )
+            rows.forEachIndexed { i, (label, icon) ->
+                Row(
+                    Modifier.fillMaxWidth().staggeredEntry(i).clip(RoundedCornerShape(24.dp)).background(Volt.surface)
+                        .gradientBorder(1.dp, RoundedCornerShape(24.dp)).pressScale { onOpenTime(i) }.padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon, null, tint = Volt.textDim, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Text(label, color = Volt.text, style = VoltType.title, modifier = Modifier.weight(1f))
+                    GradientText(meals[i].value, style = VoltType.numberM)
+                }
+            }
+        }
+
+        Pg.Foods -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            LabeledField("Verduras", f.vegs.value, { f.vegs.value = it }, "brócoli, espinaca, tomate")
+            LabeledField("Carbohidratos", f.carbs.value, { f.carbs.value = it }, "arroz, papa, avena")
+            LabeledField("Proteínas", f.prots.value, { f.prots.value = it }, "pollo, huevo, atún")
+        }
+
+        Pg.Special -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth().height(96.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Tile(f.specialOn.value, { f.specialOn.value = true }, Modifier.weight(1f).fillMaxHeight()) { fg, _ ->
+                    Spacer(Modifier.weight(1f)); Text("Sí, tengo", color = fg, style = VoltType.title)
+                }
+                Tile(!f.specialOn.value, { f.specialOn.value = false }, Modifier.weight(1f).fillMaxHeight()) { fg, _ ->
+                    Spacer(Modifier.weight(1f)); Text("No por ahora", color = fg, style = VoltType.title)
+                }
             }
             AnimatedVisibility(
                 visible = f.specialOn.value,
-                enter = expandVertically(tween(280)) + fadeIn(tween(280)),
-                exit = shrinkVertically(tween(220)) + fadeOut(tween(160)),
+                enter = expandVertically(spring(0.85f, 400f)) + fadeIn(tween(250)),
+                exit = shrinkVertically(tween(200)) + fadeOut(tween(150)),
             ) {
-                Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ObField(f.specialActivity.value, { f.specialActivity.value = it.take(60) }, "Actividad (ej. Pádel)", null, null)
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LabeledField("Actividad", f.specialActivity.value, { f.specialActivity.value = it.take(60) }, "Pádel")
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         DAYS.forEach { d -> VoltChip(d, f.specialDay.value.equals(d, ignoreCase = true), { f.specialDay.value = d }) }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(30, 45, 60, 90).forEach { m -> NumberBox("${m}m", f.specialMin.value == m, { f.specialMin.value = m }, Modifier.weight(1f)) }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(30, 45, 60, 90).forEach { m -> VoltChip("$m min", f.specialMin.value == m, { f.specialMin.value = m }) }
                     }
                 }
             }
         }
 
-        Column(Modifier.staggeredEntry(4), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Plato especial (opcional)", color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
-            ObField(f.dish.value, { f.dish.value = it.take(200) }, "Ingredientes", null, null, placeholder = "arroz, lentejas, tomate, queso feta")
-            ObField(f.dishKcal.value, { f.dishKcal.value = it.filter(Char::isDigit).take(4); errors.remove("dishKcal") }, "Calorías objetivo", null, errors["dishKcal"], KeyboardType.Number, suffix = "kcal")
+        Pg.Dish -> Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            LabeledField("Ingredientes", f.dish.value, { f.dish.value = it.take(200) }, "arroz, lentejas, tomate, queso feta")
+            LabeledField(
+                "Calorías objetivo", f.dishKcal.value, { f.dishKcal.value = it.filter(Char::isDigit).take(4); errors.remove("dishKcal") }, "390",
+                error = errors["dishKcal"], keyboardType = KeyboardType.Number, suffix = "kcal",
+            )
         }
     }
 }
@@ -578,69 +554,123 @@ private fun StepNutrition(f: Form, errors: MutableMap<String, String>) {
 // ───────────────────────── Componentes ─────────────────────────
 
 @Composable
-private fun ObField(
-    value: String, onChange: (String) -> Unit, label: String, icon: ImageVector?, error: String?,
-    keyboardType: KeyboardType = KeyboardType.Text, placeholder: String? = null, suffix: String? = null,
+private fun LabeledField(
+    label: String, value: String, onChange: (String) -> Unit, placeholder: String, error: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text, suffix: String? = null,
 ) {
-    OutlinedTextField(
-        value = value, onValueChange = onChange, singleLine = true, modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        placeholder = if (placeholder != null) { { Text(placeholder, color = Volt.textDim.copy(alpha = 0.6f)) } } else null,
-        leadingIcon = if (icon != null) { { Icon(icon, null, tint = Volt.textDim, modifier = Modifier.size(20.dp)) } } else null,
-        suffix = if (suffix != null) { { Text(suffix, color = Volt.textDim, fontSize = 12.sp) } } else null,
-        isError = error != null,
-        supportingText = if (error != null) { { Text(error) } } else null,
-        shape = RoundedCornerShape(18.dp), colors = voltFieldColors(),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-    )
-}
-
-/** Tarjeta seleccionable con borde/fondo animados y rebote al pulsar. */
-@Composable
-private fun Choice(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val border by animateColorAsState(if (selected) Volt.accent else Volt.border, tween(220), label = "choiceB")
-    val bg by animateColorAsState(if (selected) Volt.accent.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.03f), tween(220), label = "choiceBg")
-    Box(
-        modifier.pressScale(onClick).clip(RoundedCornerShape(20.dp)).background(bg)
-            .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(20.dp)).padding(14.dp),
-    ) { content() }
-}
-
-@Composable
-private fun CheckDot(visible: Boolean) {
-    AnimatedVisibility(visible, enter = scaleIn(tween(220)) + fadeIn(), exit = scaleOut(tween(150)) + fadeOut()) {
-        Box(Modifier.size(22.dp).clip(CircleShape).background(Volt.accent), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(14.dp))
-        }
+    Column {
+        Text(label.uppercase(), color = Volt.textDim, style = VoltType.label)
+        BigTextField(value, onChange, placeholder, error, keyboardType = keyboardType, suffix = suffix, size = 22)
     }
 }
 
+/** Campo de texto enorme con subrayado degradado (sin caja). */
 @Composable
-private fun NumberBox(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val border by animateColorAsState(if (selected) Volt.accent else Volt.border, tween(200), label = "nbB")
-    val bg by animateColorAsState(if (selected) Volt.accent.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.03f), tween(200), label = "nbBg")
-    val tc by animateColorAsState(if (selected) Volt.accent else Volt.textDim, tween(200), label = "nbT")
-    Box(
-        modifier.height(48.dp).pressScale(onClick).clip(RoundedCornerShape(16.dp)).background(bg).border(1.dp, border, RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.Center,
-    ) { Text(text, color = tc, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+private fun BigTextField(
+    value: String, onChange: (String) -> Unit, placeholder: String, error: String?, modifier: Modifier = Modifier,
+    keyboardType: KeyboardType = KeyboardType.Text, imeAction: ImeAction = ImeAction.Next, onDone: () -> Unit = {},
+    suffix: String? = null, size: Int = 30,
+) {
+    val style = VoltType.h1.copy(fontSize = size.sp, lineHeight = (size * 1.25f).sp, color = Volt.text)
+    val grad = Volt.gradient
+    Column(modifier.fillMaxWidth()) {
+        BasicTextField(
+            value = value, onValueChange = onChange, singleLine = true, textStyle = style, cursorBrush = SolidColor(Volt.accent),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+            keyboardActions = KeyboardActions(onDone = { onDone() }, onNext = { }),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                Row(Modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        if (value.isEmpty()) Text(placeholder, style = style, color = Volt.textDim.copy(alpha = 0.45f), maxLines = 1)
+                        inner()
+                    }
+                    if (suffix != null) Text(suffix, color = Volt.textDim, style = VoltType.title)
+                }
+            },
+        )
+        Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).drawBehind {
+            if (error != null) drawRect(Color(0xFFFF4D6A)) else drawRect(grad)
+        })
+        if (error != null) Text(error, color = Volt.danger, style = VoltType.body, modifier = Modifier.padding(top = 8.dp))
+    }
 }
 
+/** Mosaico seleccionable: relleno degradado al elegir, borde degradado fino si no, rebote al pulsar. */
 @Composable
-private fun MealTimeRow(label: String, icon: ImageVector, time: String, onPick: (String) -> Unit) {
-    val ctx = LocalContext.current
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.3f)).padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun Tile(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.(Color, Color) -> Unit) {
+    val sel = animateFloatAsState(if (selected) 1f else 0f, spring(0.7f, 450f), label = "tile")
+    val shape = RoundedCornerShape(28.dp)
+    val grad = Volt.gradient
+    val base = Volt.surface
+    val fg = animateColorAsState(if (selected) Volt.onAccent else Volt.text, tween(180), label = "tileFg").value
+    val dim = animateColorAsState(if (selected) Volt.onAccent.copy(alpha = 0.7f) else Volt.textDim, tween(180), label = "tileDim").value
+    Column(
+        modifier.graphicsLayer { val s = 1f + 0.025f * sel.value; scaleX = s; scaleY = s }
+            .pressScale(onClick).clip(shape)
+            .drawBehind { drawRect(base); drawRect(grad, alpha = sel.value.coerceIn(0f, 1f)) }
+            .then(if (selected) Modifier else Modifier.gradientBorder(1.dp, shape))
+            .padding(20.dp),
+    ) { this.content(fg, dim) }
+}
+
+/** Valor gigante con digitos rodantes + slider; tic haptico en cada valor entero. */
+@Composable
+private fun GiantSlider(
+    value: Float, onChange: (Float) -> Unit, range: ClosedFloatingPointRange<Float>, unit: String, error: String?, modifier: Modifier = Modifier,
+) {
+    val haptic = LocalHapticFeedback.current
+    val grad = Volt.gradient
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        RollingNumber(
+            value.roundToInt(), style = VoltType.numberXL.copy(fontSize = 120.sp, lineHeight = 124.sp), suffix = unit, brush = grad,
+        )
+        Spacer(Modifier.height(24.dp))
+        Slider(
+            value = value,
+            onValueChange = { v ->
+                val r = v.roundToInt().toFloat()
+                if (r != value) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onChange(r) }
+            },
+            valueRange = range,
+            colors = SliderDefaults.colors(
+                thumbColor = Volt.accent, activeTrackColor = Volt.accent, inactiveTrackColor = Color.White.copy(alpha = 0.12f),
+            ),
+        )
+        Row(Modifier.fillMaxWidth()) {
+            Text("${range.start.roundToInt()}", color = Volt.textDim, style = VoltType.body, modifier = Modifier.weight(1f))
+            Text("${range.endInclusive.roundToInt()}", color = Volt.textDim, style = VoltType.body)
+        }
+        if (error != null) Text(error, color = Volt.danger, style = VoltType.body, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+/** Selector de hora propio: dos ruedas (horas / minutos) en una hoja inferior. */
+@Composable
+private fun TimeSheet(title: String, initial: String, onDone: (String) -> Unit, onDismiss: () -> Unit) {
+    val (h0, m0) = remember(initial) { runCatching { initial.split(":").let { it[0].toInt() to it[1].toInt() } }.getOrDefault(12 to 0) }
+    var h by remember { mutableIntStateOf(h0.coerceIn(0, 23)) }
+    var m by remember { mutableIntStateOf(m0.coerceIn(0, 59)) }
+    val none = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+    Box(
+        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).clickable(interactionSource = none, indication = null) { onDismiss() },
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        Icon(icon, null, tint = Volt.textDim, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(10.dp))
-        Text(label, color = Volt.text, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-        Box(
-            Modifier.clip(RoundedCornerShape(10.dp)).background(Volt.surface2).clickable {
-                val (h, m) = runCatching { time.split(":").let { it[0].toInt() to it[1].toInt() } }.getOrDefault(12 to 0)
-                TimePickerDialog(ctx, { _, hh, mm -> onPick("%02d:%02d".format(hh, mm)) }, h, m, true).show()
-            }.padding(horizontal = 14.dp, vertical = 8.dp),
-        ) { Text(time, color = Volt.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+        Column(
+            Modifier.fillMaxWidth().clip(shape).background(Volt.surface).gradientBorder(1.dp, shape)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
+                .navigationBarsPadding().padding(horizontal = 24.dp).padding(top = 20.dp, bottom = 20.dp),
+        ) {
+            Text(title.uppercase(), color = Volt.accent, style = VoltType.label)
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BigNumberPicker(h.toFloat(), { h = it.roundToInt() }, 0f..23f, Modifier.weight(1f), itemHeight = 52.dp)
+                Text(":", color = Volt.text, style = VoltType.numberL, modifier = Modifier.padding(horizontal = 8.dp))
+                BigNumberPicker(m.toFloat(), { m = it.roundToInt() }, 0f..59f, Modifier.weight(1f), itemHeight = 52.dp)
+            }
+            Spacer(Modifier.height(16.dp))
+            PrimaryButton("Listo", onClick = { onDone("%02d:%02d".format(h, m)) })
+        }
     }
 }

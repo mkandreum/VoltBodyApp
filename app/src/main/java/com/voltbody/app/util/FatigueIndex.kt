@@ -54,7 +54,7 @@ fun fatigueStatusLabel(status: String): String = when (status) {
 }
 
 fun fatigueStatusColor(status: String): Color = when (status) {
-    "fresh" -> Color(0xFF34D399)
+    "fresh" -> Color(0xFF4DA3FF)
     "moderate" -> Color(0xFFFACC15)
     "high" -> Color(0xFFFB923C)
     else -> Color(0xFFF87171)

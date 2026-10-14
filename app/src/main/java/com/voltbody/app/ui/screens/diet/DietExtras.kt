@@ -1,8 +1,6 @@
 package com.voltbody.app.ui.screens.diet
 
-import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -11,19 +9,22 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voltbody.app.data.DailyMetric
 import com.voltbody.app.data.DietPlan
 import com.voltbody.app.data.FoodPreferences
@@ -31,74 +32,80 @@ import com.voltbody.app.data.Repository
 import com.voltbody.app.data.SpecialDish
 import com.voltbody.app.ui.*
 import com.voltbody.app.ui.theme.Volt
+import com.voltbody.app.ui.theme.VoltType
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 const val WATER_TARGET_ML = 2500
 
-/** Contador de agua del día: se lee/escribe en DailyMetric.waterMl (servidor). */
+/** Contador de agua del día: se lee/escribe en DailyMetric.waterMl (servidor). Solo observa el dato de agua de hoy. */
 @Composable
 fun WaterCard(repo: Repository, modifier: Modifier = Modifier) {
-    val st by repo.state.collectAsState()
     val scope = rememberCoroutineScope()
     val today = remember { LocalDate.now().toString() }
-    val ml = st.metrics.firstOrNull { it.date == today }?.waterMl ?: 0
+    val mlFlow = remember(repo) { repo.state.map { s -> s.metrics.firstOrNull { it.date == today }?.waterMl ?: 0 }.distinctUntilChanged() }
+    val ml by mlFlow.collectAsStateWithLifecycle(initialValue = repo.state.value.metrics.firstOrNull { it.date == today }?.waterMl ?: 0)
     fun add(delta: Int) {
         val next = (ml + delta).coerceAtLeast(0)
         scope.launch { repo.saveMetrics(today, DailyMetric(today, waterMl = next)) }
     }
     val pct = ((ml * 100f) / WATER_TARGET_ML).coerceIn(0f, 100f)
-    val bar by animateFloatAsState(pct / 100f, tween(700, easing = FastOutSlowInEasing), label = "waterBar")
+    val bar = animateFloatAsState(pct / 100f, tween(700, easing = EaseOutExpo), label = "waterBar")
     val cups = 10
     val activeCups = (ml / 250).coerceAtMost(cups)
+    val water = Volt.water
 
-    VoltCard(modifier.fillMaxWidth()) {
+    BentoCard(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("HIDRATACIÓN", color = Volt.textDim, fontSize = 10.sp, letterSpacing = 1.sp)
-                Text("Agua de hoy", color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text("HIDRATACIÓN", color = Volt.textDim, style = VoltType.label)
+                Text("Agua de hoy", color = Volt.text, style = VoltType.h2)
             }
-            Row(
-                Modifier.clip(RoundedCornerShape(50)).background(Volt.water.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CountUpText(ml.toFloat(), style = androidx.compose.ui.text.TextStyle(color = Volt.water, fontSize = 13.sp, fontWeight = FontWeight.Bold))
-                Text(" / ${WATER_TARGET_ML}ml", color = Volt.water, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.Bottom) {
+                CountUpText(ml.toFloat(), style = VoltType.numberM.copy(color = water))
+                Text(" / ${WATER_TARGET_ML} ml", color = Volt.textDim, style = VoltType.body, modifier = Modifier.padding(bottom = 3.dp))
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth()) {
-            Text("${pct.toInt()}% completado", color = Volt.water, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text("${(WATER_TARGET_ML - ml).coerceAtLeast(0)}ml restantes", color = Volt.textDim, fontSize = 11.sp)
-        }
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).drawBehind {
+                drawRect(water.copy(alpha = 0.16f))
+                drawRoundRect(water, androidx.compose.ui.geometry.Offset.Zero, Size(size.width * bar.value, size.height), CornerRadius(size.height / 2))
+            },
+        )
         Spacer(Modifier.height(6.dp))
-        Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(Volt.surface2)) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(bar).clip(RoundedCornerShape(5.dp)).background(Volt.water))
+        Row(Modifier.fillMaxWidth()) {
+            Text("${pct.toInt()}% completado", color = water, style = VoltType.body, modifier = Modifier.weight(1f))
+            Text("${(WATER_TARGET_ML - ml).coerceAtLeast(0)} ml restantes", color = Volt.textDim, style = VoltType.body)
         }
         Spacer(Modifier.height(14.dp))
         for (row in 0 until 2) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (col in 0 until 5) {
                     val idx = row * 5 + col
                     val filled = idx < activeCups
-                    val fill by animateFloatAsState(if (filled) 1f else 0f, tween(450, easing = FastOutSlowInEasing), label = "cup")
+                    val fill = animateFloatAsState(if (filled) 1f else 0f, tween(450, easing = EaseOutExpo), label = "cup")
                     Box(
-                        Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(12.dp))
-                            .background(Volt.surface2)
+                        Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(16.dp))
+                            .drawBehind {
+                                drawRect(Color.White.copy(alpha = 0.05f))
+                                val h = size.height * fill.value
+                                drawRect(water.copy(alpha = 0.75f), androidx.compose.ui.geometry.Offset(0f, size.height - h), Size(size.width, h))
+                            }
                             .pressScale { if (filled) add(-250) else add(250) },
-                        contentAlignment = Alignment.BottomCenter,
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(Modifier.fillMaxWidth().fillMaxHeight(fill).background(Volt.water.copy(alpha = 0.75f)))
-                        Text(if (filled) "💧" else "250", color = if (filled) Color.White else Volt.textDim, fontSize = 10.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        Text(if (filled) "💧" else "250", color = if (filled) Color.White else Volt.textDim, style = VoltType.label)
                     }
                 }
             }
         }
-        Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            WaterButton("+ 250ml", Volt.water, Modifier.weight(1f)) { add(250) }
-            WaterButton("+ 500ml", Volt.water, Modifier.weight(1f)) { add(500) }
-            WaterButton("- 250ml", Volt.textDim, Modifier.weight(1f), enabled = ml > 0) { add(-250) }
+            WaterButton("+ 250 ml", water, Modifier.weight(1f)) { add(250) }
+            WaterButton("+ 500 ml", water, Modifier.weight(1f)) { add(500) }
+            WaterButton("- 250 ml", Volt.textDim, Modifier.weight(1f), enabled = ml > 0) { add(-250) }
         }
     }
 }
@@ -106,10 +113,10 @@ fun WaterCard(repo: Repository, modifier: Modifier = Modifier) {
 @Composable
 private fun WaterButton(text: String, color: Color, modifier: Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
-        modifier.height(44.dp).clip(RoundedCornerShape(14.dp)).background(color.copy(alpha = if (enabled) 0.12f else 0.05f))
+        modifier.height(48.dp).clip(CircleShape).background(color.copy(alpha = if (enabled) 0.14f else 0.05f))
             .let { if (enabled) it.pressScale(onClick) else it },
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (enabled) color else color.copy(alpha = 0.4f), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(text, color = if (enabled) color else color.copy(alpha = 0.4f), style = VoltType.body.copy(fontWeight = FontWeight.Bold)) }
 }
 
 private val baseSpecialDish = listOf("arroz" to 130, "lentejas" to 116, "tomate" to 18, "queso feta" to 265)
@@ -125,12 +132,13 @@ fun SpecialDishCard(repo: Repository, diet: DietPlan, saved: SpecialDish?, modif
     val scale = targetKcal.toDouble() / baseCalories
     val totalMacros = (diet.macros.protein + diet.macros.carbs + diet.macros.fat).coerceAtLeast(1)
 
-    VoltCard(modifier.fillMaxWidth()) {
-        SectionTitle("🍲 Plato Especial Ajustable")
-        Text("Base estándar: arroz + lentejas + tomate + queso feta", color = Volt.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Calorías objetivo", color = Volt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("$targetKcal kcal", color = Volt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    BentoCard(modifier.fillMaxWidth()) {
+        Text("PLATO ESPECIAL", color = Volt.accent, style = VoltType.label)
+        Text("🍲 Ajustable a tus kcal", color = Volt.text, style = VoltType.h2)
+        Text("Base estándar: arroz + lentejas + tomate + queso feta", color = Volt.textDim, style = VoltType.body, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Text("Calorías objetivo", color = Volt.text, style = VoltType.title, modifier = Modifier.weight(1f))
+            RollingNumber(targetKcal, style = VoltType.numberM, suffix = "kcal", brush = Volt.gradient)
         }
         Spacer(Modifier.height(6.dp))
         Slider(
@@ -139,22 +147,22 @@ fun SpecialDishCard(repo: Repository, diet: DietPlan, saved: SpecialDish?, modif
             colors = SliderDefaults.colors(thumbColor = Volt.accent, activeTrackColor = Volt.accent, inactiveTrackColor = Volt.surface2),
         )
         VoltTextField(target, { v -> target = v.filter { it.isDigit() }.take(3) }, "Kcal (200-900)", keyboardType = KeyboardType.Number)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             baseSpecialDish.forEach { (name, _) ->
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Volt.surface2).padding(8.dp)) {
-                    Text(name, color = Volt.textDim, fontSize = 9.sp, maxLines = 1)
-                    CountUpText((100 * scale).toFloat(), suffix = "g", style = androidx.compose.ui.text.TextStyle(color = Volt.text, fontSize = 14.sp, fontWeight = FontWeight.Bold))
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Volt.surface2).padding(10.dp)) {
+                    Text(name, color = Volt.textDim, style = VoltType.label, maxLines = 1)
+                    CountUpText((100 * scale).toFloat(), suffix = "g", style = VoltType.numberS.copy(color = Volt.text))
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(12.dp)) {
+        Spacer(Modifier.height(14.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Equivalencias rápidas por macros", color = Volt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("Equivalencias rápidas por macros", color = Volt.text, style = VoltType.body.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
                 Switch(
                     checked = quick, onCheckedChange = { quick = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Volt.accent, checkedThumbColor = Color.Black, uncheckedTrackColor = Volt.surface, uncheckedBorderColor = Volt.border),
+                    colors = SwitchDefaults.colors(checkedTrackColor = Volt.accent, checkedThumbColor = Volt.onAccent, uncheckedTrackColor = Volt.surface, uncheckedBorderColor = Volt.border),
                 )
             }
             AnimatedVisibility(quick, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -164,14 +172,14 @@ fun SpecialDishCard(repo: Repository, diet: DietPlan, saved: SpecialDish?, modif
                     QuickRow("+10g grasas:", FatColor, "+15g frutos secos o +12g aceite")
                     Text(
                         "P ${Math.round(diet.macros.protein * 100f / totalMacros)}% · C ${Math.round(diet.macros.carbs * 100f / totalMacros)}% · G ${Math.round(diet.macros.fat * 100f / totalMacros)}%",
-                        color = Volt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Volt.accent.copy(alpha = 0.12f)).padding(8.dp),
+                        color = Volt.text, style = VoltType.body.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Volt.accent.copy(alpha = 0.12f)).padding(10.dp),
                     )
                 }
             }
-            if (!quick) Text("Activa el switch para ver reemplazos rápidos según macronutrientes.", color = Volt.textDim, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+            if (!quick) Text("Activa el switch para ver reemplazos rápidos según macronutrientes.", color = Volt.textDim, style = VoltType.body, modifier = Modifier.padding(top = 4.dp))
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
         PrimaryButton("Guardar como mi plato especial", onClick = {
             scope.launch {
                 repo.saveProfile { it.copy(profile = it.profile.copy(specialDish = SpecialDish("arroz + lentejas + tomate + queso feta", targetKcal))) }
@@ -181,12 +189,13 @@ fun SpecialDishCard(repo: Repository, diet: DietPlan, saved: SpecialDish?, modif
     }
 }
 
+
 @Composable
 private fun QuickRow(label: String, color: Color, text: String) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.04f)).padding(8.dp)) {
-        Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.04f)).padding(10.dp)) {
+        Text(label, color = color, style = VoltType.body.copy(fontWeight = FontWeight.Bold))
         Spacer(Modifier.width(6.dp))
-        Text(text, color = Volt.text, fontSize = 11.sp)
+        Text(text, color = Volt.text, style = VoltType.body)
     }
 }
 
@@ -201,12 +210,15 @@ fun FoodPreferencesCard(repo: Repository, prefs: FoodPreferences, modifier: Modi
     var carbs by remember(prefs) { mutableStateOf(prefs.carbs.joinToString(", ")) }
     var prot by remember(prefs) { mutableStateOf(prefs.proteins.joinToString(", ")) }
 
-    VoltCard(modifier.fillMaxWidth()) {
+    BentoCard(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("🥘 Preferencias Nutricionales", color = Volt.text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text("PREFERENCIAS", color = Volt.accent, style = VoltType.label)
+                Text("🥘 Lo que te gusta", color = Volt.text, style = VoltType.h2)
+            }
             Text(
-                if (editing) "Guardar" else "Editar", color = Volt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(50)).pressScale {
+                if (editing) "Guardar" else "Editar", color = Volt.accent, style = VoltType.label,
+                modifier = Modifier.clip(CircleShape).background(Volt.accent.copy(alpha = 0.14f)).pressScale {
                     if (editing) {
                         scope.launch {
                             repo.saveProfile { it.copy(profile = it.profile.copy(foodPreferences = FoodPreferences(parseList(veg), parseList(carbs), parseList(prot)))) }
@@ -214,20 +226,20 @@ fun FoodPreferencesCard(repo: Repository, prefs: FoodPreferences, modifier: Modi
                         }
                     }
                     editing = !editing
-                }.padding(horizontal = 10.dp, vertical = 6.dp),
+                }.padding(horizontal = 16.dp, vertical = 14.dp),
             )
         }
-        Spacer(Modifier.height(10.dp))
-        AnimatedVisibility(!editing) {
+        Spacer(Modifier.height(12.dp))
+        AnimatedVisibility(!editing, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PrefRow("🥦 Verduras:", prefs.vegetables.joinToString(", ").ifBlank { "Variadas" })
-                PrefRow("🍚 Carbos:", prefs.carbs.joinToString(", ").ifBlank { "Complejos" })
-                PrefRow("🥩 Proteínas:", prefs.proteins.joinToString(", ").ifBlank { "Magras" })
+                PrefRow("🥦 Verduras", prefs.vegetables.joinToString(", ").ifBlank { "Variadas" })
+                PrefRow("🍚 Carbos", prefs.carbs.joinToString(", ").ifBlank { "Complejos" })
+                PrefRow("🥩 Proteínas", prefs.proteins.joinToString(", ").ifBlank { "Magras" })
             }
         }
         AnimatedVisibility(editing, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Separa los alimentos con comas.", color = Volt.textDim, fontSize = 11.sp)
+                Text("Separa los alimentos con comas.", color = Volt.textDim, style = VoltType.body)
                 VoltTextField(veg, { veg = it }, "Verduras", singleLine = false)
                 VoltTextField(carbs, { carbs = it }, "Carbohidratos", singleLine = false)
                 VoltTextField(prot, { prot = it }, "Proteínas", singleLine = false)
@@ -238,10 +250,10 @@ fun FoodPreferencesCard(repo: Repository, prefs: FoodPreferences, modifier: Modi
 
 @Composable
 private fun PrefRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(10.dp)) {
-        Text(label, color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(14.dp)) {
+        Text(label, color = Volt.textDim, style = VoltType.body.copy(fontWeight = FontWeight.Bold))
         Spacer(Modifier.width(8.dp))
-        Text(value, color = Volt.text, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        Text(value, color = Volt.text, style = VoltType.body, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
     }
 }
 
@@ -251,11 +263,12 @@ fun RegenerateCard(repo: Repository, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
-    VoltCard(modifier.fillMaxWidth()) {
-        SectionTitle("✨ Regenerar plan nutricional")
+    BentoCard(modifier.fillMaxWidth()) {
+        Text("NUEVO PLAN", color = Volt.accent, style = VoltType.label)
+        Text("✨ Regenerar plan nutricional", color = Volt.text, style = VoltType.h2)
         Text(
             "La IA creará una dieta nueva con tus datos y preferencias actuales. Tu rutina de entrenamiento no cambia.",
-            color = Volt.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            color = Volt.textDim, style = VoltType.body, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
         )
         PrimaryButton("Regenerar dieta", onClick = { confirm = true }, loading = loading)
     }
@@ -263,15 +276,16 @@ fun RegenerateCard(repo: Repository, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { confirm = false },
             containerColor = Volt.surface,
-            title = { Text("¿Regenerar tu dieta?", color = Volt.text, fontWeight = FontWeight.Bold) },
-            text = { Text("Se sustituirán todas las comidas actuales por un plan nuevo y se reiniciarán las comidas marcadas de hoy.", color = Volt.textDim) },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("¿Regenerar tu dieta?", color = Volt.text, style = VoltType.h2) },
+            text = { Text("Se sustituirán todas las comidas actuales por un plan nuevo y se reiniciarán las comidas marcadas de hoy.", color = Volt.textDim, style = VoltType.body) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
                     scope.launch { loading = true; regenerateDiet(repo); loading = false }
-                }) { Text("Regenerar", color = Volt.accent, fontWeight = FontWeight.Bold) }
+                }) { Text("Regenerar", color = Volt.accent, style = VoltType.title) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar", color = Volt.textDim) } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar", color = Volt.textDim, style = VoltType.title) } },
         )
     }
 }

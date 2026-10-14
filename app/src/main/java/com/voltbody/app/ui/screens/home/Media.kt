@@ -38,6 +38,8 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import coil.request.ImageRequest
+import coil.size.Size as CoilSize
 import com.voltbody.app.ui.theme.Volt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,20 +59,23 @@ private fun decodeSampled(bytes: ByteArray, target: Int = 1024): Bitmap? {
 
 /** Imagen desde data-URL base64 (BitmapFactory) o URL remota (Coil). */
 @Composable
-fun DataImage(src: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+fun DataImage(src: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, maxPx: Int = 1024) {
     if (src.isNullOrBlank()) return
     if (src.startsWith("data:")) {
-        val bmp: State<ImageBitmap?> = produceState<ImageBitmap?>(null, src) {
+        // Decodificacion fuera del hilo principal; el ImageBitmap queda cacheado por (src, maxPx).
+        val bmp: State<ImageBitmap?> = produceState<ImageBitmap?>(null, src, maxPx) {
             value = withContext(Dispatchers.Default) {
                 runCatching {
                     val bytes = Base64.decode(src.substringAfter("base64,"), Base64.DEFAULT)
-                    decodeSampled(bytes)?.asImageBitmap()
+                    decodeSampled(bytes, maxPx)?.asImageBitmap()
                 }.getOrNull()
             }
         }
         Box(modifier) { bmp.value?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale) } }
     } else {
-        AsyncImage(model = src, contentDescription = null, modifier = modifier, contentScale = contentScale)
+        val ctx = LocalContext.current
+        val req = remember(src, maxPx) { ImageRequest.Builder(ctx).data(src).size(CoilSize(maxPx, maxPx)).crossfade(false).build() }
+        AsyncImage(model = req, contentDescription = null, modifier = modifier, contentScale = contentScale)
     }
 }
 
@@ -81,19 +86,21 @@ fun rememberGifLoader(): ImageLoader {
     return remember {
         ImageLoader.Builder(ctx).components {
             if (Build.VERSION.SDK_INT >= 28) add(ImageDecoderDecoder.Factory()) else add(GifDecoder.Factory())
-        }.crossfade(true).build()
+        }.crossfade(false).build()
     }
 }
 
 /** Imagen/GIF de un ejercicio con marcador si no hay url. */
 @Composable
-fun ExerciseImage(url: String?, loader: ImageLoader, modifier: Modifier = Modifier) {
+fun ExerciseImage(url: String?, loader: ImageLoader, modifier: Modifier = Modifier, widthPx: Int = 420, heightPx: Int = 520, colorFilter: androidx.compose.ui.graphics.ColorFilter? = null) {
     if (url.isNullOrBlank()) {
         Box(modifier.background(Volt.surface2), contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.FitnessCenter, null, tint = Volt.textDim)
         }
     } else {
-        AsyncImage(model = url, imageLoader = loader, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
+        val ctx = LocalContext.current
+        val req = remember(url, widthPx, heightPx) { ImageRequest.Builder(ctx).data(url).size(CoilSize(widthPx, heightPx)).crossfade(false).build() }
+        AsyncImage(model = req, imageLoader = loader, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop, colorFilter = colorFilter)
     }
 }
 
@@ -140,7 +147,7 @@ fun ConfettiBurst(trigger: Int, modifier: Modifier = Modifier) {
     LaunchedEffect(trigger) {
         if (trigger > 0) { progress.snapTo(0f); progress.animateTo(1f, tween(1400, easing = LinearEasing)) }
     }
-    val colors = listOf(Volt.accent, Volt.orange, Volt.water, Color.White)
+    val colors = listOf(Volt.accent, Volt.accent2, Volt.water, Color.White)
     Canvas(modifier) {
         val t = progress.value
         if (t >= 1f) return@Canvas

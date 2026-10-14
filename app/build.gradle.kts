@@ -18,7 +18,13 @@ android {
         buildConfigField("String", "DEFAULT_API_URL", "\"https://voltbody.xyoncloud.win\"")
     }
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Firmado con la clave debug para poder instalarlo directamente (pruebas). Cambiar para publicar.
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -26,6 +32,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    testOptions { unitTests { isIncludeAndroidResources = true; all { it.systemProperty("roborazzi.test.record", "true") } } }
 }
 
 dependencies {
@@ -53,5 +60,15 @@ dependencies {
     implementation("androidx.camera:camera-view:1.3.4")
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
     implementation("com.google.guava:guava:33.3.1-android")
+    // Aplica los Baseline Profiles de Compose al instalar (APK instalado a mano): arranque y animaciones mucho mas fluidos.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.30.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.30.0")
 }

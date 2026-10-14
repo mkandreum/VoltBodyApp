@@ -30,6 +30,7 @@ import com.voltbody.app.health.HealthSnapshot
 import com.voltbody.app.health.healthManager
 import com.voltbody.app.ui.*
 import com.voltbody.app.ui.theme.Volt
+import com.voltbody.app.ui.theme.VoltType
 import com.voltbody.app.util.Notifications
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,10 +53,10 @@ private fun StatusDot(ok: Boolean) {
 private fun SmallButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false, onClick: () -> Unit) {
     val c = if (danger) Volt.danger else Volt.accent
     Box(
-        modifier.height(44.dp).clip(RoundedCornerShape(14.dp)).background(c.copy(alpha = if (enabled) 0.14f else 0.05f))
+        modifier.height(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(c.copy(alpha = if (enabled) 0.14f else 0.05f))
             .let { if (enabled) it.pressScale(onClick) else it },
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (enabled) c else c.copy(alpha = 0.4f), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(text, color = if (enabled) c else c.copy(alpha = 0.4f), style = VoltType.body.copy(fontWeight = FontWeight.Bold)) }
 }
 
 /** Seccion "Salud": conexion con Health Connect (Samsung Health se sincroniza a traves de el). */
@@ -73,7 +74,7 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
     var busy by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
-        hasPerms = runCatching { manager.hasAllPermissions() }.getOrDefault(false)
+        hasPerms = runCatching { manager.hasAnyPermission() }.getOrDefault(false)
         if (hasPerms) {
             snapshot = runCatching { manager.readToday() }.getOrNull()
             sleep = runCatching { manager.readSleepLastNight() }.getOrNull()
@@ -95,31 +96,31 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
     }
 
     val available = availability == HC_SDK_AVAILABLE
-    val connected = enabled && hasPerms
+    val connected = hasPerms
     val today = remember { LocalDate.now().toString() }
 
-    VoltCard(modifier.fillMaxWidth()) {
+    BentoCard(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Health Connect", color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("Pasos, sueño, HRV, calorías y peso", color = Volt.textDim, fontSize = 11.sp)
+                Text("Health Connect", color = Volt.text, style = VoltType.h2)
+                Text("Pasos, sueño, HRV, calorías y peso", color = Volt.textDim, style = VoltType.body)
             }
             StatusDot(connected)
             Spacer(Modifier.width(6.dp))
-            Text(if (connected) "Conectado" else "No conectado", color = if (connected) Volt.accent else Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(if (connected) "Conectado" else "No conectado", color = if (connected) Volt.accent else Volt.textDim, style = VoltType.label)
         }
         Spacer(Modifier.height(10.dp))
         Text(
             "Samsung Health se sincroniza con VoltBody a través de Health Connect: activa la sincronización con Health Connect en Samsung Health (Ajustes > Health Connect) y concede aquí los permisos.",
-            color = Volt.textDim, fontSize = 11.sp, lineHeight = 16.sp,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(10.dp),
+            color = Volt.textDim, style = VoltType.body,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(10.dp),
         )
         Spacer(Modifier.height(12.dp))
 
         if (!available) {
             Text(
                 if (availability == 2) "Health Connect necesita una actualización para funcionar." else "Health Connect no está instalado o no es compatible con este dispositivo.",
-                color = Volt.orange, fontSize = 12.sp,
+                color = Volt.orange, style = VoltType.body,
             )
             Spacer(Modifier.height(10.dp))
             SmallButton(if (availability == 2) "Actualizar Health Connect" else "Instalar Health Connect", Modifier.fillMaxWidth()) {
@@ -129,7 +130,7 @@ fun HealthCard(repo: Repository, modifier: Modifier = Modifier) {
                     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
             }
-            return@VoltCard
+            return@BentoCard
         }
 
         if (!connected) {
@@ -218,9 +219,9 @@ fun ServerCard(repo: Repository, modifier: Modifier = Modifier) {
     var result by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var testing by remember { mutableStateOf(false) }
 
-    VoltCard(modifier.fillMaxWidth()) {
-        Text("Servidor", color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Text("Dirección del backend de VoltBody (el mismo de la web)", color = Volt.textDim, fontSize = 11.sp)
+    BentoCard(modifier.fillMaxWidth()) {
+        Text("Servidor", color = Volt.text, style = VoltType.h2)
+        Text("Dirección del backend de VoltBody (el mismo de la web)", color = Volt.textDim, style = VoltType.body)
         Spacer(Modifier.height(12.dp))
         VoltTextField(url, { url = it; result = null }, "URL del servidor", keyboardType = KeyboardType.Uri)
         Spacer(Modifier.height(10.dp))
@@ -242,13 +243,13 @@ fun ServerCard(repo: Repository, modifier: Modifier = Modifier) {
         AnimatedVisibility(testing || result != null) {
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (testing) {
-                    Text("Comprobando...", color = Volt.textDim, fontSize = 12.sp)
+                    Text("Comprobando...", color = Volt.textDim, style = VoltType.body)
                 } else {
                     val r = result
                     if (r != null) {
                         StatusDot(r.first)
                         Spacer(Modifier.width(8.dp))
-                        Text(r.second, color = if (r.first) Volt.accent else Volt.danger, fontSize = 12.sp)
+                        Text(r.second, color = if (r.first) Volt.accent else Volt.danger, style = VoltType.body)
                     }
                 }
             }
@@ -293,9 +294,9 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
         }
     }
 
-    VoltCard(modifier.fillMaxWidth()) {
-        Text("Datos y sesión", color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Text(state.user?.email ?: "Sesión local", color = Volt.textDim, fontSize = 11.sp)
+    BentoCard(modifier.fillMaxWidth()) {
+        Text("Tu cuenta", color = Volt.text, style = VoltType.h2)
+        Text(state.user?.email ?: "Sesión local", color = Volt.textDim, style = VoltType.body)
         Spacer(Modifier.height(12.dp))
         SmallButton("Exportar mis datos (JSON)", Modifier.fillMaxWidth()) {
             exporter.launch("voltbody-datos-${LocalDate.now()}.json")
@@ -310,6 +311,7 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             containerColor = Volt.surface,
+            shape = RoundedCornerShape(28.dp),
             title = { Text("¿Resetear datos locales?", color = Volt.text, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
@@ -330,7 +332,7 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
                         runCatching { repo.refreshAll() }
                         repo.toast("success", "Datos locales reseteados", "Se han vuelto a descargar del servidor.")
                     }
-                }) { Text("Resetear", color = Volt.danger, fontWeight = FontWeight.Bold) }
+                }) { Text("Resetear", color = Volt.danger, fontWeight = FontWeight.ExtraBold) }
             },
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancelar", color = Volt.textDim) } },
         )
@@ -339,6 +341,7 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { confirmLogout = false },
             containerColor = Volt.surface,
+            shape = RoundedCornerShape(28.dp),
             title = { Text("¿Cerrar sesión?", color = Volt.text, fontWeight = FontWeight.Bold) },
             text = { Text("Se borrarán los datos de este dispositivo. Tu cuenta y tus datos siguen en el servidor.", color = Volt.textDim) },
             confirmButton = {
@@ -346,7 +349,7 @@ fun DataCard(repo: Repository, state: AppState, modifier: Modifier = Modifier) {
                     confirmLogout = false
                     Notifications.cancelAll(ctx)
                     repo.logout()
-                }) { Text("Cerrar sesión", color = Volt.danger, fontWeight = FontWeight.Bold) }
+                }) { Text("Cerrar sesión", color = Volt.danger, fontWeight = FontWeight.ExtraBold) }
             },
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancelar", color = Volt.textDim) } },
         )

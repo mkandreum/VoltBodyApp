@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voltbody.app.ui.theme.Volt
+import com.voltbody.app.ui.theme.VoltType
 import kotlin.math.abs
 import kotlin.math.round
 
@@ -120,7 +122,7 @@ fun WeightCalculator(
 
     Column(modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Volt.surface2).border(1.dp, Volt.border, RoundedCornerShape(18.dp))
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Volt.surface2)
                 .clickable { open = !open }.padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -137,8 +139,7 @@ fun WeightCalculator(
 
         AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(
-                Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface2.copy(alpha = 0.6f))
-                    .border(1.dp, Volt.border, RoundedCornerShape(20.dp)).padding(14.dp),
+                Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Volt.surface.copy(alpha = 0.9f)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (targetWeight > 0) {
@@ -236,7 +237,7 @@ fun WeightCalculator(
                                 label = "calcTotal",
                             ) { t ->
                                 Row(verticalAlignment = Alignment.Bottom) {
-                                    Text(fmtNum(t), color = Volt.accent, fontSize = 30.sp, fontWeight = FontWeight.Black)
+                                    Text(fmtNum(t), style = VoltType.numberL.copy(brush = Volt.gradient))
                                     Spacer(Modifier.width(4.dp))
                                     Text("kg", color = Volt.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 5.dp))
                                 }
@@ -248,19 +249,19 @@ fun WeightCalculator(
                                         gap > 0 -> "${fmtNum(gap)} kg por debajo de la meta"
                                         else -> "${fmtNum(abs(gap))} kg por encima de la meta"
                                     },
-                                    color = when { abs(gap) < 1e-9 -> Color(0xFF34D399); gap > 0 -> Color(0xFFFBBF24); else -> Color(0xFF38BDF8) },
+                                    color = when { abs(gap) < 1e-9 -> Volt.accent2; gap > 0 -> PrGold; else -> Volt.water },
                                     fontSize = 11.sp,
                                 )
                             }
                         }
                         Row(
-                            Modifier.clip(RoundedCornerShape(14.dp)).background(Volt.accent).clickable { onWeightChange(total) }
+                            Modifier.clip(CircleShape).background(Volt.gradient).clickable { onWeightChange(total) }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Usar", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("Usar", color = Volt.onAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Filled.ArrowForward, null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.ArrowForward, null, tint = Volt.onAccent, modifier = Modifier.size(14.dp))
                         }
                     }
                 }

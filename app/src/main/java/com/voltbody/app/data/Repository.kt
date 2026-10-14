@@ -60,9 +60,17 @@ class Repository(private val ctx: Context) {
 
     private suspend fun authenticate(path: String, email: String, password: String, name: String?) {
         val body = buildJsonObject { put("email", email.trim()); put("password", password); name?.let { put("name", it) } }
-        val res = api.request("POST", path, body, auth = false).jsonObject
-        val user = AppJson.decodeFromJsonElement<AuthUser>(res["user"]!!)
-        update { it.copy(authToken = res["token"]!!.jsonPrimitive.content, user = user) }
+        val res = api.request("POST", path, body, auth = false) as? JsonObject
+            ?: throw ApiException("El servidor devolvió una respuesta no válida al iniciar sesión.")
+        val token = (res["token"] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull
+        val userEl = res["user"]?.takeIf { it !is JsonNull }
+        // Nunca usar `!!`: un cuerpo inesperado lanzaría una NPE sin mensaje ("Error al conectar" genérico).
+        if (token.isNullOrBlank() || userEl == null) {
+            throw ApiException("El servidor respondió sin sesión válida. Revisa la URL o inténtalo de nuevo.")
+        }
+        val user = runCatching { AppJson.decodeFromJsonElement<AuthUser>(userEl) }
+            .getOrElse { throw ApiException("Respuesta de usuario no reconocida por la app.") }
+        update { it.copy(authToken = token, user = user) }
         applyServerProfile(res["profile"] as? JsonObject, user.name)
         refreshAll()
     }
@@ -72,35 +80,57 @@ class Repository(private val ctx: Context) {
     fun setServerUrl(url: String) = update { it.copy(serverUrl = url.trim()) }
 
     // ───────────────────── Perfil / plan ─────────────────────
-    /** Vuelca el perfil del servidor (UserProfile) al estado local. onboarded = tiene rutina y dieta (igual que la web). */
+    /** Decodifica un elemento a [T] tolerando tipos inesperados; devuelve null en lugar de lanzar. */
+    private inline fun <reified T> decodeSoft(el: JsonElement?): T? =
+        el?.let { runCatching { AppJson.decodeFromJsonElement<T>(it) }.getOrNull() }
+
+    /**
+     * Vuelca el perfil del servidor (UserProfile) al estado local. onboarded = tiene rutina y dieta (igual que la web).
+     * Cada campo se lee de forma tolerante: números que llegan como texto se aceptan y un valor con tipo inesperado
+     * cae a su valor por defecto en vez de perder todo el perfil o lanzar una excepción sin mensaje.
+     */
     private fun applyServerProfile(p: JsonObject?, userName: String?) {
         if (p == null) return
         val prefs = (p["insights"] as? JsonObject)?.get("appPreferences") as? JsonObject
-        fun <T> pref(key: String, f: (JsonElement) -> T?): T? =
-            (p[key]?.takeIf { it !is JsonNull }?.let(f)) ?: prefs?.get(key)?.takeIf { it !is JsonNull }?.let(f)
-        val profile = AppJson.decodeFromJsonElement<Profile>(p).copy(
-            name = userName ?: _state.value.profile.name,
-            trainingDaysPerWeek = pref("trainingDaysPerWeek") { it.jsonPrimitive.intOrNull } ?: 3,
-            sessionMinutes = pref("sessionMinutes") { it.jsonPrimitive.intOrNull } ?: 45,
-            goalDirection = pref("goalDirection") { it.jsonPrimitive.contentOrNull } ?: "Perder",
-            goalTargetKg = pref("goalTargetKg") { it.jsonPrimitive.doubleOrNull } ?: 5.0,
-            goalTimelineMonths = pref("goalTimelineMonths") { it.jsonPrimitive.intOrNull } ?: 3,
-            foodPreferences = pref("foodPreferences") { AppJson.decodeFromJsonElement<FoodPreferences>(it) } ?: FoodPreferences(),
-            weeklySpecialSession = pref("weeklySpecialSession") { AppJson.decodeFromJsonElement<WeeklySpecialSession>(it) }
+        fun el(key: String): JsonElement? = p[key]?.takeIf { it !is JsonNull } ?: prefs?.get(key)?.takeIf { it !is JsonNull }
+        fun str(key: String): String? = runCatching { el(key)?.jsonPrimitive?.contentOrNull }.getOrNull()
+        fun int(key: String): Int? = runCatching { el(key)?.jsonPrimitive?.intOrNull }.getOrNull()
+        fun dbl(key: String): Double? = runCatching { el(key)?.jsonPrimitive?.doubleOrNull }.getOrNull()
+        val profile = Profile(
+            name = userName ?: str("name") ?: _state.value.profile.name,
+            age = int("age"),
+            weight = dbl("weight"),
+            height = dbl("height"),
+            gender = str("gender"),
+            goal = str("goal"),
+            goalDirection = str("goalDirection") ?: "Perder",
+            goalTargetKg = dbl("goalTargetKg") ?: 5.0,
+            goalTimelineMonths = int("goalTimelineMonths") ?: 3,
+            currentState = str("currentState"),
+            schedule = str("schedule"),
+            workHours = str("workHours"),
+            trainingDaysPerWeek = int("trainingDaysPerWeek") ?: 3,
+            sessionMinutes = int("sessionMinutes") ?: 45,
+            theme = str("theme"),
+            motivationPhrase = str("motivationPhrase"),
+            motivationPhoto = str("motivationPhoto"),
+            mealTimes = decodeSoft<MealTimes>(p["mealTimes"] as? JsonObject) ?: MealTimes(),
+            foodPreferences = decodeSoft<FoodPreferences>(el("foodPreferences") as? JsonObject) ?: FoodPreferences(),
+            weeklySpecialSession = decodeSoft<WeeklySpecialSession>(el("weeklySpecialSession") as? JsonObject)
                 ?: WeeklySpecialSession(false, "Zumba", "Sábado", 60),
-            specialDish = pref("specialDish") { AppJson.decodeFromJsonElement<SpecialDish>(it) },
-            mealTimes = (p["mealTimes"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<MealTimes>(it) } ?: MealTimes(),
-            avatarConfig = (p["avatarConfig"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<AvatarConfig>(it) } ?: AvatarConfig(0.5, 0.5),
+            specialDish = decodeSoft<SpecialDish>(el("specialDish") as? JsonObject),
+            avatarConfig = decodeSoft<AvatarConfig>(p["avatarConfig"] as? JsonObject) ?: AvatarConfig(0.5, 0.5),
+            profilePhoto = str("profilePhoto"),
         )
-        val routine = (p["routine"] as? JsonArray)?.let { AppJson.decodeFromJsonElement<List<WorkoutDay>>(it) }.orEmpty()
-        val diet = (p["diet"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<DietPlan>(it) }
-        val insights = (p["insights"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<Insights>(it) }
+        val routine = runCatching { (p["routine"] as? JsonArray)?.let { AppJson.decodeFromJsonElement<List<WorkoutDay>>(it) }.orEmpty() }.getOrDefault(emptyList())
+        val diet = runCatching { (p["diet"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<DietPlan>(it) } }.getOrNull()
+        val insights = runCatching { (p["insights"] as? JsonObject)?.let { AppJson.decodeFromJsonElement<Insights>(it) } }.getOrNull()
         update {
             it.copy(
                 profile = profile, routine = routine, diet = diet, insights = insights,
                 isOnboarded = routine.isNotEmpty() && diet != null,
-                theme = pref("theme") { e -> e.jsonPrimitive.contentOrNull } ?: it.theme,
-                motivationPhrase = pref("motivationPhrase") { e -> e.jsonPrimitive.contentOrNull } ?: it.motivationPhrase,
+                theme = str("theme") ?: it.theme,
+                motivationPhrase = str("motivationPhrase") ?: it.motivationPhrase,
                 notificationsEnabled = (p["notificationsEnabled"] as? JsonPrimitive)?.booleanOrNull ?: it.notificationsEnabled,
             )
         }
@@ -118,19 +148,40 @@ class Repository(private val ctx: Context) {
         val data = async { runCatching { AppJson.decodeFromJsonElement<DataAll>(api.request("GET", "/data/all")) }.getOrNull() }
         prof.await()?.let { applyServerProfile(it, _state.value.user?.name) }
         logs.await()?.let { arr -> applyLogs(arr) }
-        photos.await()?.let { arr ->
-            update { it.copy(progressPhotos = arr.map { e -> ProgressPhoto(e.jsonObject["date"]!!.jsonPrimitive.content, e.jsonObject["url"]!!.jsonPrimitive.content) }) }
-        }
-        weights.await()?.let { arr ->
-            val server = arr.map { e -> WeightLog(e.jsonObject["date"]!!.jsonPrimitive.content.take(10), e.jsonObject["weight"]!!.jsonPrimitive.double) }
-            update { s -> s.copy(weightLogs = server.sortedBy { it.date }) }
-        }
-        data.await()?.let { applyData(it) }
+        photos.await()?.let { arr -> applyPhotos(arr) }
+        weights.await()?.let { arr -> applyWeights(arr) }
+        data.await()?.let { d -> runCatching { applyData(d) } }
     }
 
     private fun applyLogs(arr: JsonArray) {
         val logs = arr.mapNotNull { runCatching { AppJson.decodeFromJsonElement<WorkoutLog>(it) }.getOrNull() }
         update { it.copy(logs = logs) }
+    }
+
+    /** Mapea fotos del servidor ignorando filas malformadas (antes usaba `!!` → NPE sin mensaje). */
+    private fun applyPhotos(arr: JsonArray) {
+        val photos = arr.mapNotNull { e ->
+            runCatching {
+                val o = e.jsonObject
+                val date = o["date"]?.jsonPrimitive?.contentOrNull ?: return@runCatching null
+                val url = o["url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching null
+                ProgressPhoto(date, url)
+            }.getOrNull()
+        }
+        update { it.copy(progressPhotos = photos) }
+    }
+
+    /** Mapea pesos del servidor aceptando `weight` numérico o en texto e ignorando filas malformadas. */
+    private fun applyWeights(arr: JsonArray) {
+        val rows = arr.mapNotNull { e ->
+            runCatching {
+                val o = e.jsonObject
+                val date = o["date"]?.jsonPrimitive?.contentOrNull?.take(10) ?: return@runCatching null
+                val kg = o["weight"]?.jsonPrimitive?.doubleOrNull ?: return@runCatching null
+                WeightLog(date, kg)
+            }.getOrNull()
+        }
+        update { s -> s.copy(weightLogs = rows.sortedBy { it.date }) }
     }
 
     private suspend fun reloadLogs() {
@@ -360,8 +411,31 @@ class Repository(private val ctx: Context) {
     }
 
     /** Rellena gifUrl vacíos desde la base de ejercicios del servidor. Degrada en silencio. */
-    suspend fun enrichRoutine(routine: List<WorkoutDay>): List<WorkoutDay> = runCatching {
-        val res = api.request("POST", "/ai/enrich-routine", buildJsonObject { put("routine", AppJson.encodeToJsonElement(routine)) }).jsonObject
+    suspend fun enrichRoutine(routine: List<WorkoutDay>, force: Boolean = false): List<WorkoutDay> = runCatching {
+        val res = api.request("POST", "/ai/enrich-routine", buildJsonObject {
+            put("routine", AppJson.encodeToJsonElement(routine)); if (force) put("force", true)
+        }).jsonObject
         AppJson.decodeFromJsonElement<List<WorkoutDay>>(res["routine"]!!)
     }.getOrDefault(routine)
+
+    private var gifsChecked = false
+
+    /**
+     * Re-empareja los GIF de la rutina y de la rutina personal con la tabla curada del servidor (una vez por arranque).
+     * Si alguno cambia, guarda la version corregida en el servidor (la web tambien la vera bien).
+     */
+    suspend fun fixExerciseGifs() {
+        if (gifsChecked || !_state.value.isAuthenticated) return
+        gifsChecked = true
+        val s = _state.value
+        if (s.routine.isNotEmpty()) {
+            val fixed = enrichRoutine(s.routine, force = true)
+            val changed = fixed.flatMap { it.exercises }.map { it.gifUrl } != s.routine.flatMap { it.exercises }.map { it.gifUrl }
+            if (changed && fixed.size == s.routine.size) saveProfile(withPlan = true) { it.copy(routine = fixed) }
+        }
+        if (s.customWorkout.isNotEmpty()) {
+            val fixed = enrichRoutine(listOf(WorkoutDay("custom", "custom", s.customWorkout)), force = true).firstOrNull()?.exercises
+            if (fixed != null && fixed.size == s.customWorkout.size && fixed.map { it.gifUrl } != s.customWorkout.map { it.gifUrl }) saveCustomWorkout(fixed)
+        }
+    }
 }

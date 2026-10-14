@@ -55,7 +55,11 @@ class Api(private val baseUrl: () -> String, private val token: () -> String?, p
             } catch (e: ApiException) {
                 throw e
             } catch (e: Exception) {
-                throw ApiException("Sin conexión con el servidor (${e.message ?: "error de red"})")
+                val net = e is java.io.IOException
+                throw ApiException(
+                    if (net) "Sin conexión con el servidor (${e.message ?: "error de red"})"
+                    else "Error inesperado del servidor: ${e::class.java.simpleName}${e.message?.takeIf { it.isNotBlank() }?.let { ": $it" } ?: ""}"
+                )
             }
         }
 

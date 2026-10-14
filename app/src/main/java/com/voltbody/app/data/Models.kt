@@ -103,7 +103,7 @@ val AppJson = Json { ignoreUnknownKeys = true; coerceInputValues = true; explici
     val logs: List<WorkoutLog> = emptyList(),
     val weightLogs: List<WeightLog> = emptyList(),
     val progressPhotos: List<ProgressPhoto> = emptyList(),
-    val theme: String = "verde-negro", // verde-negro | aguamarina-negro | ocaso-negro
+    val theme: String = "verde-negro", // verde-negro (Lima) | aguamarina-negro (Aguamarina) | ocaso-negro (Ocaso)
     val motivationPhrase: String = "Cada repetición te acerca a tu mejor versión.",
     val metrics: List<DailyMetric> = emptyList(),
     val mealEaten: Map<String, List<String>> = emptyMap(), // fecha -> ids de comidas hechas

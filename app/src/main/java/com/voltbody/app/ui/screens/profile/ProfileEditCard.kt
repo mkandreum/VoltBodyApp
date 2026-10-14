@@ -29,6 +29,7 @@ import com.voltbody.app.data.Repository
 import com.voltbody.app.data.WeeklySpecialSession
 import com.voltbody.app.ui.*
 import com.voltbody.app.ui.theme.Volt
+import com.voltbody.app.ui.theme.VoltType
 import com.voltbody.app.util.Notifications
 import kotlinx.coroutines.launch
 
@@ -53,7 +54,7 @@ fun ProfChips(content: @Composable () -> Unit) {
 
 @Composable
 fun ProfLabel(text: String) {
-    Text(text, color = Volt.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+    Text(text.uppercase(), color = Volt.textDim, style = VoltType.label, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
 }
 
 /**
@@ -131,15 +132,15 @@ fun PersonalDataCard(repo: Repository, p: Profile, notificationsEnabled: Boolean
         }
     }
 
-    VoltCard(modifier.fillMaxWidth()) {
+    BentoCard(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Mis datos", color = Volt.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("Biometría, objetivos, horarios y sesión especial", color = Volt.textDim, fontSize = 11.sp)
+                Text("Mis datos", color = Volt.text, style = VoltType.h2)
+                Text("Biometría, objetivos, horarios y sesión especial", color = Volt.textDim, style = VoltType.body)
             }
             Text(
-                if (editing) "Cancelar" else "Editar", color = if (editing) Volt.textDim else Volt.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(50)).clickable { editing = !editing; error = null }.padding(horizontal = 12.dp, vertical = 8.dp),
+                if (editing) "Cancelar" else "Editar", color = if (editing) Volt.textDim else Volt.accent, style = VoltType.label,
+                modifier = Modifier.clip(androidx.compose.foundation.shape.CircleShape).background(Volt.surface2).pressScale { editing = !editing; error = null }.padding(horizontal = 16.dp, vertical = 14.dp),
             )
         }
         AnimatedVisibility(editing, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -181,10 +182,10 @@ fun PersonalDataCard(repo: Repository, p: Profile, notificationsEnabled: Boolean
 
                 ProfLabel("Sesión semanal especial")
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Añadir una sesión extra (ej. Zumba, running)", color = Volt.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("Añadir una sesión extra (ej. Zumba, running)", color = Volt.text, style = VoltType.body, modifier = Modifier.weight(1f))
                     Switch(
                         checked = special.enabled, onCheckedChange = { special = special.copy(enabled = it) },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Volt.accent, checkedThumbColor = Color.Black, uncheckedTrackColor = Volt.surface2, uncheckedBorderColor = Volt.border),
+                        colors = SwitchDefaults.colors(checkedTrackColor = Volt.accent, checkedThumbColor = Volt.onAccent, uncheckedTrackColor = Volt.surface2, uncheckedBorderColor = Volt.border),
                     )
                 }
                 AnimatedVisibility(special.enabled, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -198,7 +199,7 @@ fun PersonalDataCard(repo: Repository, p: Profile, notificationsEnabled: Boolean
                 }
 
                 AnimatedVisibility(error != null) {
-                    Text(error.orEmpty(), color = Volt.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+                    Text(error.orEmpty(), color = Volt.danger, style = VoltType.body, modifier = Modifier.padding(top = 12.dp))
                 }
                 Spacer(Modifier.height(16.dp))
                 PrimaryButton("Guardar cambios", onClick = ::save, loading = saving)
@@ -211,14 +212,14 @@ fun PersonalDataCard(repo: Repository, p: Profile, notificationsEnabled: Boolean
 private fun TimeChip(label: String, value: String, onChange: (String) -> Unit) {
     val ctx = LocalContext.current
     Column(
-        Modifier.clip(RoundedCornerShape(16.dp)).background(Volt.surface2).clickable {
+        Modifier.clip(RoundedCornerShape(20.dp)).background(Volt.surface2).clickable {
             val h = value.substringBefore(':').toIntOrNull() ?: 12
             val m = value.substringAfter(':', "0").toIntOrNull() ?: 0
             TimePickerDialog(ctx, { _, hh, mm -> onChange("%02d:%02d".format(hh, mm)) }, h, m, true).show()
         }.padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
-        Text(label, color = Volt.textDim, fontSize = 10.sp)
-        Text(value, color = Volt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(label.uppercase(), color = Volt.textDim, style = VoltType.label)
+        Text(value, color = Volt.text, style = VoltType.numberS)
     }
 }
 

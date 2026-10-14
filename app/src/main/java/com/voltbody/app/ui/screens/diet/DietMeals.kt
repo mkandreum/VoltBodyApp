@@ -1,43 +1,50 @@
 package com.voltbody.app.ui.screens.diet
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.voltbody.app.data.Meal
+import com.voltbody.app.ui.AnimatedCheck
+import com.voltbody.app.ui.PrimaryButton
+import com.voltbody.app.ui.SkeletonBox
+import com.voltbody.app.ui.pressScale
 import com.voltbody.app.ui.staggeredEntry
 import com.voltbody.app.ui.theme.Volt
-
-private val EatenGreen = Color(0xFF10B981)
+import com.voltbody.app.ui.theme.VoltType
 
 fun mealEmoji(meal: Meal): String {
     val time = meal.time.lowercase()
@@ -60,104 +67,161 @@ fun mealTitle(meal: Meal): String {
     return if (startsWithPictograph) base else "${mealEmoji(meal)} $base"
 }
 
+/** Tarjeta de comida: hora destacada, check que se dibuja y boton de cambio con IA. */
 @Composable
 fun MealCard(
-    meal: Meal, index: Int, eaten: Boolean, swapping: Boolean,
+    meal: Meal, index: Int, eaten: Boolean,
     onToggle: () -> Unit, onSwap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val borderColor by animateColorAsState(if (eaten) EatenGreen.copy(alpha = 0.45f) else Volt.border, tween(300), label = "mealBorder")
-    val bg by animateColorAsState(if (eaten) EatenGreen.copy(alpha = 0.08f) else Volt.surface, tween(300), label = "mealBg")
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
+    val e = animateFloatAsState(if (eaten) 1f else 0f, tween(320), label = "mealEaten")
+    val surface = Volt.surface
+    val accent = Volt.accent
+    val border = Volt.border
 
     Column(
-        modifier.staggeredEntry(index).fillMaxWidth().clip(shape).background(bg).border(BorderStroke(1.dp, borderColor), shape).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier.staggeredEntry(index).fillMaxWidth().clip(shape)
+            .drawBehind {
+                drawRect(surface)
+                drawRect(accent.copy(alpha = 0.10f * e.value))
+            }
+            .drawBehind {
+                val a = 0.06f + 0.40f * e.value
+                drawRoundRect(
+                    if (e.value > 0.01f) accent.copy(alpha = a) else border, cornerRadius = CornerRadius(28.dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()),
+                )
+            }
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            CheckToggle(eaten, onToggle)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            Box(Modifier.size(48.dp).pressScale(onClick = onToggle), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(30.dp).border(2.dp, Volt.textDim.copy(alpha = 0.55f), CircleShape))
+                AnimatedCheck(eaten, Modifier.size(30.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f).padding(top = 2.dp)) {
+                Text(meal.time.uppercase(), color = Volt.accent, style = VoltType.label)
                 Text(
-                    mealTitle(meal), fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                    mealTitle(meal), style = VoltType.title,
                     color = if (eaten) Volt.textDim else Volt.text,
                     textDecoration = if (eaten) TextDecoration.LineThrough else null,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
-                AnimatedVisibility(eaten, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
-                    Text(
-                        "✓ Registrada", color = EatenGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(EatenGreen.copy(alpha = 0.18f)).padding(horizontal = 8.dp, vertical = 2.dp),
-                    )
-                }
                 if (meal.description.isNotBlank()) {
                     Text(
-                        meal.description, color = if (eaten) Volt.textDim.copy(alpha = 0.7f) else Volt.textDim, fontSize = 12.sp,
-                        lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                        meal.description, color = Volt.textDim, style = VoltType.body,
+                        maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
             Spacer(Modifier.width(8.dp))
-            SwapButton(swapping, onSwap)
+            Box(
+                Modifier.size(48.dp).clip(CircleShape).background(Volt.surface2).pressScale(onClick = onSwap),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Filled.AutoAwesome, "Cambiar comida con IA", tint = Volt.accent, modifier = Modifier.size(22.dp)) }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("P ${meal.protein}g", color = ProteinColor, style = VoltType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                Text("C ${meal.carbs}g", color = CarbsColor, style = VoltType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                Text("G ${meal.fat}g", color = FatColor, style = VoltType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+            }
             Row(
-                Modifier.clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.35f)).padding(horizontal = 8.dp, vertical = 5.dp),
+                Modifier.clip(CircleShape).background(Volt.accent.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Schedule, null, tint = Volt.textDim, modifier = Modifier.size(13.dp))
+                Icon(Icons.Filled.LocalFireDepartment, null, tint = Volt.accent, modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(4.dp))
-                Text(meal.time, color = Volt.text, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("P ${meal.protein}g", color = ProteinColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                Text("C ${meal.carbs}g", color = CarbsColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                Text("G ${meal.fat}g", color = FatColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Row(
-                Modifier.clip(RoundedCornerShape(10.dp)).background(Volt.accent.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.LocalFireDepartment, null, tint = Volt.accent, modifier = Modifier.size(13.dp))
-                Spacer(Modifier.width(3.dp))
-                Text("${meal.calories} kcal", color = Volt.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("${meal.calories} kcal", color = Volt.accent, style = VoltType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold))
             }
         }
     }
 }
 
 @Composable
-private fun CheckToggle(eaten: Boolean, onToggle: () -> Unit) {
-    val fill by animateColorAsState(if (eaten) EatenGreen else Color.Transparent, tween(250), label = "checkFill")
-    val ring by animateColorAsState(if (eaten) EatenGreen else Volt.textDim.copy(alpha = 0.6f), tween(250), label = "checkRing")
-    val scale by animateFloatAsState(if (eaten) 1f else 0.92f, spring(dampingRatio = 0.35f, stiffness = 500f), label = "checkScale")
-    Box(
-        Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onToggle),
-        contentAlignment = Alignment.Center,
+private fun SheetSpinner() {
+    val t = rememberInfiniteTransition(label = "sheetSpin")
+    val angle = t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "sheetAngle")
+    Icon(Icons.Filled.Refresh, null, tint = Volt.accent, modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = angle.value })
+}
+
+@Composable
+private fun MacroLine(m: Meal) {
+    val bold = androidx.compose.ui.text.font.FontWeight.Bold
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("P ${m.protein}g", color = ProteinColor, style = VoltType.body.copy(fontWeight = bold))
+        Text("C ${m.carbs}g", color = CarbsColor, style = VoltType.body.copy(fontWeight = bold))
+        Text("G ${m.fat}g", color = FatColor, style = VoltType.body.copy(fontWeight = bold))
+        Text("${m.calories} kcal", color = Volt.accent, style = VoltType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold))
+    }
+}
+
+/** Hoja inferior: propone una alternativa equivalente (shimmer mientras la IA responde). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MealSwapSheet(
+    old: Meal, alt: Meal?, loading: Boolean, applying: Boolean,
+    onApply: () -> Unit, onRetry: () -> Unit, onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Volt.surface,
+        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
     ) {
-        Box(
-            Modifier.size((28f * scale).dp).clip(CircleShape).background(fill).border(2.dp, ring, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            AnimatedVisibility(eaten, enter = scaleIn(spring(dampingRatio = 0.3f, stiffness = 600f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-                Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("CAMBIO CON IA", color = Volt.accent, style = VoltType.label)
+            Text("Una alternativa para ${old.name}", color = Volt.text, style = VoltType.h2)
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Volt.surface2).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("ACTUAL", color = Volt.textDim, style = VoltType.label)
+                Text(mealTitle(old), color = Volt.textDim, style = VoltType.title, maxLines = 2)
+                MacroLine(old)
             }
+            AnimatedContent(
+                targetState = loading, label = "swapContent",
+                transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(120)) },
+            ) { isLoading ->
+                if (isLoading || alt == null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SheetSpinner()
+                            Text("Buscando algo equivalente...", color = Volt.textDim, style = VoltType.body)
+                        }
+                        SkeletonBox(Modifier.fillMaxWidth(0.6f).height(22.dp), RoundedCornerShape(11.dp))
+                        SkeletonBox(Modifier.fillMaxWidth().height(14.dp), RoundedCornerShape(7.dp))
+                        SkeletonBox(Modifier.fillMaxWidth(0.85f).height(14.dp), RoundedCornerShape(7.dp))
+                        SkeletonBox(Modifier.fillMaxWidth(0.5f).height(18.dp), RoundedCornerShape(9.dp))
+                    }
+                } else {
+                    val diff = alt.calories - old.calories
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Volt.accent.copy(alpha = 0.10f))
+                            .border(1.dp, Volt.accent.copy(alpha = 0.35f), RoundedCornerShape(24.dp)).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("NUEVA PROPUESTA", color = Volt.accent, style = VoltType.label)
+                        Text(mealTitle(alt), color = Volt.text, style = VoltType.title)
+                        if (alt.description.isNotBlank()) Text(alt.description, color = Volt.textDim, style = VoltType.body, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                        MacroLine(alt)
+                        Text(
+                            if (diff == 0) "Mismas calorías" else if (diff > 0) "+$diff kcal respecto a la actual" else "$diff kcal respecto a la actual",
+                            color = Volt.textDim, style = VoltType.body,
+                        )
+                    }
+                }
+            }
+            PrimaryButton("Usar esta comida", onClick = onApply, enabled = !loading && alt != null, loading = applying)
+            Text(
+                "Probar otra opción", color = Volt.accent, style = VoltType.title,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clip(CircleShape).pressScaleIfAvailable(!loading && !applying, onRetry).padding(vertical = 14.dp),
+            )
         }
     }
 }
 
-@Composable
-private fun SwapButton(swapping: Boolean, onSwap: () -> Unit) {
-    val t = rememberInfiniteTransition(label = "swapSpin")
-    val angle by t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "swapAngle")
-    Box(
-        Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Volt.surface2)
-            .clickable(enabled = !swapping, onClick = onSwap),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Icons.Filled.Refresh, "Cambiar comida con IA",
-            tint = if (swapping) Volt.accent else Volt.textDim,
-            modifier = Modifier.size(20.dp).rotate(if (swapping) angle else 0f),
-        )
-    }
-}
+private fun Modifier.pressScaleIfAvailable(enabled: Boolean, onClick: () -> Unit): Modifier =
+    if (enabled) this.pressScale(onClick) else this.graphicsLayer { alpha = 0.4f }

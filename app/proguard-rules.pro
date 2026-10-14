@@ -1,0 +1,11 @@
+-keepattributes *Annotation*, InnerClasses, Signature, RuntimeVisibleAnnotations
+-dontnote kotlinx.serialization.**
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keepclasseswithmembers class kotlinx.serialization.json.** { kotlinx.serialization.KSerializer serializer(...); }
+-keep,includedescriptorclasses class com.voltbody.app.**$$serializer { *; }
+-keepclassmembers class com.voltbody.app.** { *** Companion; }
+-keepclasseswithmembers class com.voltbody.app.** { kotlinx.serialization.KSerializer serializer(...); }
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn org.checkerframework.**
+-dontwarn org.codehaus.mojo.animal_sniffer.**

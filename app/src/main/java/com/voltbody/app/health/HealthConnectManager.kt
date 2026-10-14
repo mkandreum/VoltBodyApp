@@ -78,6 +78,9 @@ class HealthConnectManager(ctx: Context) {
 
     suspend fun hasAllPermissions(): Boolean = granted().containsAll(permissions)
 
+    /** Con permisos parciales tambien funciona (se leen solo los concedidos). */
+    suspend fun hasAnyPermission(): Boolean = granted().any { it in permissions }
+
     private fun Set<String>.canRead(rec: KClass<out Record>) = contains(HealthPermission.getReadPermission(rec))
 
     suspend fun readToday(): HealthSnapshot {

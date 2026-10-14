@@ -23,20 +23,19 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -48,7 +47,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.voltbody.app.ui.MeshBackground
+import com.voltbody.app.ui.PrimaryButton
+import com.voltbody.app.ui.SkeletonBox
 import com.voltbody.app.ui.pressScale
+import com.voltbody.app.ui.theme.VoltType
 import com.voltbody.app.ui.theme.Volt
 import com.voltbody.app.util.rememberHaptics
 import kotlinx.coroutines.Dispatchers
@@ -83,7 +86,7 @@ private const val SCALE = 3f
  * Renderiza la tarjeta compartible a un Bitmap (equivale a html2canvas sobre WorkoutSummaryCard).
  * Se dibuja con android.graphics para no depender de una vista adjunta a la ventana.
  */
-fun renderSummaryBitmap(data: WorkoutSummaryData, accent: Int): Bitmap {
+fun renderSummaryBitmap(data: WorkoutSummaryData, accent: Int, accent2: Int = 0xFF2DD4BF.toInt()): Bitmap {
     val neon = accent
     val orange = 0xFFF97316.toInt()
     val completionPct = if (data.plannedSets > 0) Math.round(data.completedSets * 100f / data.plannedSets) else 100
@@ -187,7 +190,7 @@ fun renderSummaryBitmap(data: WorkoutSummaryData, accent: Int): Bitmap {
     val fillW = innerW * (completionPct.coerceIn(0, 100) / 100f)
     if (fillW > 0f) {
         val bar = RectF(padX, y, padX + fillW, y + 6f)
-        val gp = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = LinearGradient(padX, 0f, CARD_W - padX, 0f, neon, 0xFF00F0FF.toInt(), Shader.TileMode.CLAMP) }
+        val gp = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = LinearGradient(padX, 0f, CARD_W - padX, 0f, neon, accent2, Shader.TileMode.CLAMP) }
         pc.drawRoundRect(bar, 3f, 3f, gp)
     }
     y += 6f + 14f
@@ -220,7 +223,7 @@ fun renderSummaryBitmap(data: WorkoutSummaryData, accent: Int): Bitmap {
     val clip = Path().apply { addRoundRect(shape, 28f, 28f, Path.Direction.CW) }
     c.save()
     c.clipPath(clip)
-    c.drawRect(shape, Paint().apply { shader = LinearGradient(0f, 0f, CARD_W, totalH, intArrayOf(0xFF0F1015.toInt(), 0xFF0B0C10.toInt(), 0xFF08120A.toInt()), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP) })
+    c.drawRect(shape, Paint().apply { shader = LinearGradient(0f, 0f, CARD_W, totalH, intArrayOf(0xFF1A1A22.toInt(), 0xFF0B0B0F.toInt(), 0xFF0B0B0F.toInt()), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP) })
     c.drawCircle(60f, 20f, 160f, Paint().apply { shader = RadialGradient(60f, 20f, 160f, alpha(neon, 0.14f), 0x00000000, Shader.TileMode.CLAMP) })
     c.drawCircle(CARD_W + 10f, 60f, 140f, Paint().apply { shader = RadialGradient(CARD_W + 10f, 60f, 140f, alpha(neon, 0.22f), 0x00000000, Shader.TileMode.CLAMP) })
     c.drawCircle(-10f, totalH + 10f, 130f, Paint().apply { shader = RadialGradient(-10f, totalH + 10f, 130f, alpha(neon, 0.1f), 0x00000000, Shader.TileMode.CLAMP) })
@@ -254,57 +257,52 @@ fun shareSummaryBitmap(ctx: Context, bmp: Bitmap, text: String): Boolean {
 fun SummaryDialog(data: WorkoutSummaryData, onDismiss: () -> Unit, onToast: (String, String) -> Unit) {
     val ctx = LocalContext.current
     val accent = Volt.accent.toArgb()
+    val accent2 = Volt.accent2.toArgb()
     var bmp by remember { mutableStateOf<Bitmap?>(null) }
     var sharing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val haptics = rememberHaptics()
     val appear = remember { Animatable(0f) }
     LaunchedEffect(Unit) { haptics.heavy(); appear.animateTo(1f, tween(600, easing = FastOutSlowInEasing)) }
-    LaunchedEffect(data) { bmp = withContext(Dispatchers.Default) { runCatching { renderSummaryBitmap(data, accent) }.getOrNull() } }
+    LaunchedEffect(data) { bmp = withContext(Dispatchers.Default) { runCatching { renderSummaryBitmap(data, accent, accent2) }.getOrNull() } }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.92f)).systemBarsPadding()) {
+        Box(Modifier.fillMaxSize().background(Volt.bg).systemBarsPadding()) {
+            MeshBackground(Modifier.fillMaxSize(), colorA = Volt.accent, colorB = Volt.accent2, intensity = 0.55f)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("¡Entreno completado!", color = Volt.text, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.weight(1f))
-                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.1f)).pressScale(onDismiss), contentAlignment = Alignment.Center) {
+                    Text("¡Entreno completado!", color = Volt.text, style = VoltType.h1, modifier = Modifier.weight(1f))
+                    Box(Modifier.size(46.dp).clip(CircleShape).background(Volt.surface).pressScale(onDismiss), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Close, "Cerrar", tint = Volt.text)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
                 val b = bmp
                 if (b == null) {
-                    Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Volt.accent) }
+                    SkeletonBox(Modifier.fillMaxWidth().height(420.dp), RoundedCornerShape(36.dp))
                 } else {
                     Image(
                         b.asImageBitmap(), "Tarjeta de sesión completada", contentScale = ContentScale.FillWidth,
-                        modifier = Modifier.fillMaxWidth().scale(0.9f + 0.1f * appear.value).alpha(appear.value),
+                        modifier = Modifier.fillMaxWidth().graphicsLayer { val s = 0.9f + 0.1f * appear.value; scaleX = s; scaleY = s; alpha = appear.value },
                     )
                 }
                 Spacer(Modifier.height(20.dp))
-                Box(
-                    Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(27.dp)).background(if (b != null) Volt.accent else Volt.surface2)
-                        .pressScale {
-                            val bm = bmp ?: return@pressScale
-                            if (sharing) return@pressScale
-                            sharing = true
-                            scope.launch {
-                                val ok = withContext(Dispatchers.IO) { shareSummaryBitmap(ctx, bm, "Acabo de completar \"${data.focus}\" (${data.exerciseCount} ejercicios) en VoltBody 🔥") }
-                                if (!ok) onToast("Error al compartir", "No se pudo generar la imagen.")
-                                sharing = false
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (sharing) CircularProgressIndicator(Modifier.size(18.dp), color = Color.Black, strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.Share, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (sharing) "Generando tarjeta..." else "Compartir logro", color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
+                PrimaryButton(
+                    if (sharing) "Generando tarjeta..." else "Compartir logro",
+                    onClick = {
+                        val bm = bmp ?: return@PrimaryButton
+                        if (sharing) return@PrimaryButton
+                        sharing = true
+                        scope.launch {
+                            val ok = withContext(Dispatchers.IO) { shareSummaryBitmap(ctx, bm, "Acabo de completar \"${data.focus}\" (${data.exerciseCount} ejercicios) en VoltBody 🔥") }
+                            if (!ok) onToast("Error al compartir", "No se pudo generar la imagen.")
+                            sharing = false
+                        }
+                    },
+                    enabled = b != null, loading = sharing,
+                )
                 Spacer(Modifier.height(10.dp))
-                Text("Cerrar", color = Volt.textDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().pressScale(onDismiss).padding(14.dp))
+                Text("Cerrar", color = Volt.textDim, style = VoltType.title, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().pressScale(onDismiss).padding(14.dp))
             }
         }
     }

@@ -19,28 +19,38 @@ class Haptics(context: Context) {
         else @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }.getOrNull()
 
-    private fun vibrate(vararg pattern: Long) {
+    /** Usa los efectos predefinidos del motor haptico (API 29+), que si se notan; si no, one-shot a amplitud maxima. */
+    private fun fire(effectId: Int, fallbackMs: Long) {
         val v = vibrator ?: return
         runCatching {
             if (!v.hasVibrator()) return
-            val effect = if (pattern.size == 1) VibrationEffect.createOneShot(pattern[0], VibrationEffect.DEFAULT_AMPLITUDE)
-            else VibrationEffect.createWaveform(longArrayOf(0L) + pattern, -1)
+            val effect = if (Build.VERSION.SDK_INT >= 29) VibrationEffect.createPredefined(effectId)
+            else VibrationEffect.createOneShot(fallbackMs, 255)
             v.vibrate(effect)
         }
     }
 
-    /** Toque ultra ligero: navegacion, cambios de pestana (~6ms) */
-    fun selection() = vibrate(6)
-    /** Impacto ligero: botones y toggles (~10ms) */
-    fun light() = vibrate(10)
-    /** Impacto medio: series completadas, anadir agua (~20ms) */
-    fun medium() = vibrate(20)
-    /** Impacto fuerte: terminar entreno, desbloquear logro (~35ms) */
-    fun heavy() = vibrate(35)
-    /** Exito: doble toque rapido */
-    fun success() = vibrate(10, 30, 20)
-    fun warning() = vibrate(20, 50, 20)
-    fun error() = vibrate(30, 60, 30, 60, 30)
+    private fun wave(vararg pattern: Long) {
+        val v = vibrator ?: return
+        runCatching {
+            if (!v.hasVibrator()) return
+            val amps = IntArray(pattern.size) { if (it % 2 == 0) 0 else 255 }
+            v.vibrate(VibrationEffect.createWaveform(pattern, amps, -1))
+        }
+    }
+
+    /** Tic de seleccion: navegacion, ruedas, chips */
+    fun selection() = fire(VibrationEffect.EFFECT_TICK, 12)
+    /** Pulsacion de boton */
+    fun light() = fire(VibrationEffect.EFFECT_CLICK, 18)
+    /** Serie completada, anadir agua */
+    fun medium() = fire(VibrationEffect.EFFECT_CLICK, 28)
+    /** Terminar entreno, logro */
+    fun heavy() = fire(VibrationEffect.EFFECT_HEAVY_CLICK, 45)
+    /** Exito: doble toque */
+    fun success() = fire(VibrationEffect.EFFECT_DOUBLE_CLICK, 30)
+    fun warning() = wave(0, 25, 60, 25)
+    fun error() = wave(0, 35, 70, 35, 70, 35)
 
     companion object {
         fun of(context: Context) = Haptics(context.applicationContext)
