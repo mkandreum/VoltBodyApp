@@ -72,7 +72,7 @@ enum class Tab(val label: String, val icon: ImageVector) {
 private val NAV_ORDER = listOf(Tab.Home, Tab.Diet, Tab.Workout, Tab.Calendar, Tab.Profile)
 
 /** Solo lo que necesita la raiz: evita recomponer toda la app con cada cambio de AppState. */
-private data class Root(val auth: Boolean, val onboarded: Boolean, val hydrated: Boolean, val theme: String)
+private data class Root(val auth: Boolean, val onboarded: Boolean, val hydrated: Boolean, val theme: String, val loaded: Boolean, val error: String?)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,8 +85,8 @@ class MainActivity : ComponentActivity() {
         requestHighRefreshRate()
         val repo = (application as VoltBodyApp).repo
         setContent {
-            val rootFlow = remember { repo.state.map { Root(it.isAuthenticated, it.isOnboarded, it.hydrated, it.theme) }.distinctUntilChanged() }
-            val initial = remember { repo.state.value.let { Root(it.isAuthenticated, it.isOnboarded, it.hydrated, it.theme) } }
+            val rootFlow = remember { repo.state.map { Root(it.isAuthenticated, it.isOnboarded, it.hydrated, it.theme, it.profileLoaded, it.loadError) }.distinctUntilChanged() }
+            val initial = remember { repo.state.value.let { Root(it.isAuthenticated, it.isOnboarded, it.hydrated, it.theme, it.profileLoaded, it.loadError) } }
             val root by rootFlow.collectAsStateWithLifecycle(initialValue = initial)
             VoltTheme(root.theme) {
                 Surface(Modifier.fillMaxSize(), color = Volt.bg) {
@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity() {
                     val phase = when {
                         !root.hydrated -> 0
                         !root.auth -> 1
+                        !root.loaded -> 4
                         !root.onboarded -> 2
                         else -> 3
                     }
@@ -107,6 +108,7 @@ class MainActivity : ComponentActivity() {
                                 0 -> Box(Modifier.fillMaxSize())
                                 1 -> com.voltbody.app.ui.v3.LoginV3(repo)
                                 2 -> OnboardingScreen(repo)
+                                4 -> com.voltbody.app.ui.v3.LoadingProfile(repo, root.error)
                                 else -> com.voltbody.app.ui.v3.AppShell(repo)
                             }
                         }

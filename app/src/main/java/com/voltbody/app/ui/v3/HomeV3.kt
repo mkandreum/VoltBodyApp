@@ -102,14 +102,13 @@ fun HomeV3(repo: Repository) {
         Box(
             Modifier.fillMaxWidth().enter(1).clip(RoundedCornerShape(24.dp)).background(bannerBrush).tap(0.98f) { nav.tab(Tab.Train) },
         ) {
-            VoltPulse(Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.42f).height(40.dp).padding(end = 44.dp).graphicsLayer { alpha = 0.55f }, color = Color(0xFF0A0A0A), glow = false, periodMs = 3200)
             Row(Modifier.padding(horizontal = 14.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(46.dp).clip(CircleShape).background(Color(0xFF0A0A0A)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Bolt, null, tint = Volt.accent, modifier = Modifier.size(24.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(if (u.hasTodayRoutine) gymTerm(u.todayFocus ?: "Workout") else "Recarga y muévete", style = T.display.copy(fontSize = 17.sp), color = Color(0xFF0A0A0A), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    FitText(if (u.hasTodayRoutine) gymTerm(u.todayFocus ?: "Workout") else "Recarga y muévete", T.display.copy(fontSize = 17.sp), Color(0xFF0A0A0A), maxLines = 2, minScale = 0.8f)
                     Text(u.dailyQuote ?: u.phrase, style = T.caption, color = Color(0xFF0A0A0A).copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (u.hasTodayRoutine) Icon(Icons.Filled.PlayArrow, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(26.dp))
@@ -174,7 +173,7 @@ fun HomeV3(repo: Repository) {
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(if (u.hasTodayRoutine) gymTerm(u.todayFocus ?: "Workout") else "Día de descanso", style = T.section, color = Volt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    FitText(if (u.hasTodayRoutine) gymTerm(u.todayFocus ?: "Workout") else "Día de descanso", T.section, Volt.text, maxLines = 2, minScale = 0.8f)
                     Text(
                         if (u.hasTodayRoutine) "${u.todayExerciseCount} ejercicios · ${u.estimatedMinutes} min" else "Recupera o arma una sesión libre",
                         style = T.caption, color = Volt.textDim, maxLines = 1,

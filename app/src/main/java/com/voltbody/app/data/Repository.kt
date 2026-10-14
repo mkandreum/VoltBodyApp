@@ -129,6 +129,7 @@ class Repository(private val ctx: Context) {
             it.copy(
                 profile = profile, routine = routine, diet = diet, insights = insights,
                 isOnboarded = routine.isNotEmpty() && diet != null,
+                profileLoaded = true, loadError = null,
                 theme = str("theme") ?: it.theme,
                 motivationPhrase = str("motivationPhrase") ?: it.motivationPhrase,
                 notificationsEnabled = (p["notificationsEnabled"] as? JsonPrimitive)?.booleanOrNull ?: it.notificationsEnabled,
@@ -141,12 +142,14 @@ class Repository(private val ctx: Context) {
     /** Descarga perfil, logs, fotos, pesos y /data/all. Seguro de llamar al abrir la app o en pull-to-refresh. */
     suspend fun refreshAll() = coroutineScope {
         if (!_state.value.isAuthenticated) return@coroutineScope
-        val prof = async { runCatching { api.request("GET", "/profile").jsonObject }.getOrNull() }
+        val profRes = async { runCatching { api.request("GET", "/profile").jsonObject } }
         val logs = async { runCatching { api.request("GET", "/workout/logs").jsonArray }.getOrNull() }
         val photos = async { runCatching { api.request("GET", "/workout/photos").jsonArray }.getOrNull() }
         val weights = async { runCatching { api.request("GET", "/workout/weight-logs").jsonArray }.getOrNull() }
         val data = async { runCatching { AppJson.decodeFromJsonElement<DataAll>(api.request("GET", "/data/all")) }.getOrNull() }
-        prof.await()?.let { applyServerProfile(it, _state.value.user?.name) }
+        val pr = profRes.await()
+        pr.getOrNull()?.let { applyServerProfile(it, _state.value.user?.name) }
+        if (pr.isFailure && !_state.value.profileLoaded) update { it.copy(loadError = pr.exceptionOrNull()?.message ?: "No se pudo cargar tu perfil") }
         logs.await()?.let { arr -> applyLogs(arr) }
         photos.await()?.let { arr -> applyPhotos(arr) }
         weights.await()?.let { arr -> applyWeights(arr) }

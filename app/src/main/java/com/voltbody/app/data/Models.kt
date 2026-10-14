@@ -96,6 +96,9 @@ val AppJson = Json { ignoreUnknownKeys = true; coerceInputValues = true; explici
     val authToken: String? = null,
     val user: AuthUser? = null,
     val isOnboarded: Boolean = false,
+    /** true cuando el perfil ya llego del servidor (hasta entonces no se decide si mostrar onboarding). */
+    val profileLoaded: Boolean = false,
+    val loadError: String? = null,
     val profile: Profile = Profile(),
     val routine: List<WorkoutDay> = emptyList(),
     val diet: DietPlan? = null,
