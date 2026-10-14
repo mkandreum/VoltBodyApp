@@ -15,7 +15,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         // Servidor de la web (misma API/BD). Editable también desde Perfil > Servidor.
-        buildConfigField("String", "DEFAULT_API_URL", "\"https://CAMBIA-ESTO.example.com\"")
+        buildConfigField("String", "DEFAULT_API_URL", "\"https://voltbody.xyoncloud.win\"")
     }
     buildTypes {
         release { isMinifyEnabled = false }
