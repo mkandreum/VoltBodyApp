@@ -116,7 +116,7 @@ fun ActivityV3(repo: Repository) {
 
     Screen {
         Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
-            Text("Tus actividades", style = T.screen, color = Volt.text, modifier = Modifier.weight(1f))
+            MixTitle("Tu día, en datos", modifier = Modifier.weight(1f), maxLines = 1)
             IconCircle(Icons.Outlined.CalendarMonth, desc = "Calendario") { showMonth = true }
         }
 
@@ -129,7 +129,7 @@ fun ActivityV3(repo: Repository) {
             SmallPill(if (weekly) "Semanal" else "Diario", icon = Icons.Filled.KeyboardArrowDown) { weekly = !weekly }
         }
         AnimatedContent(sum.kcal, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(90)) }, label = "kcal", modifier = Modifier.enter(2)) { k ->
-            ValueUnit(fmt(k), "kcal", style = T.heroXL)
+            ValueUnit(fmt(k), "kcal", style = T.heroXL.copy(fontSize = androidx.compose.ui.unit.TextUnit(48f, androidx.compose.ui.unit.TextUnitType.Sp)))
         }
 
         Box(Modifier.fillMaxWidth().enter(3), contentAlignment = Alignment.Center) {
@@ -167,7 +167,7 @@ fun ActivityV3(repo: Repository) {
             SummaryRow(Icons.Outlined.FitnessCenter, Volt.accent, "Entreno",
                 when {
                     sum.sets > 0 -> "${sum.sets} series · ${sum.doneExercises}/${sum.plannedExercises} ejercicios"
-                    sum.plannedExercises > 0 -> (sum.focus ?: "Planificado") + " · pendiente"
+                    sum.plannedExercises > 0 -> gymTerm(sum.focus ?: "Planificado") + " · pendiente"
                     else -> "Descanso"
                 },
             ) { if (!weekly && sum.plannedExercises > 0) nav.push(Route.Day(mondayFirstIndex(selected))) else nav.tab(Tab.Train) }

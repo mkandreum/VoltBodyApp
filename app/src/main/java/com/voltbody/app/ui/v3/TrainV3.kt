@@ -83,7 +83,7 @@ fun TrainV3(repo: Repository) {
         Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Esta semana · $doneDays de $trainDays días", style = T.hello, color = Volt.textDim)
-                Text("Entrenar", style = T.screen, color = Volt.text)
+                MixTitle("Hoy, a entrenar", maxLines = 1)
             }
             IconCircle(Icons.Outlined.PlaylistAdd, desc = "Rutina personal") { nav.push(Route.Section("library")) }
         }

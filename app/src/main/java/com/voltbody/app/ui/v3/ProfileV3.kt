@@ -76,7 +76,7 @@ fun ProfileV3(repo: Repository) {
     val picker = rememberPhotoPicker("Foto de perfil") { url -> repo.saveProfile(withPhotos = true) { it.copy(profile = it.profile.copy(profilePhoto = url)) } }
 
     Screen {
-        Text("Perfil", style = T.screen, color = Volt.text, modifier = Modifier.enter(0))
+        MixTitle("Tu perfil, tu progreso", modifier = Modifier.enter(0), maxLines = 1)
         // Cabecera
         Card(Modifier.fillMaxWidth().enter(1), padding = 18.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -166,11 +166,14 @@ private fun MenuGroup(title: String, index: Int, content: @Composable ColumnScop
 private fun SectionScreen(title: String, content: @Composable ColumnScope.() -> Unit) {
     val nav = LocalNav.current
     Column(
-        Modifier.fillMaxSize().background(Volt.bg).verticalScroll(rememberScrollState())
-            .statusBarsPadding().navigationBarsPadding().padding(horizontal = K.pad).padding(top = 8.dp, bottom = 24.dp),
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            .navigationBarsPadding().padding(horizontal = K.pad).padding(top = 4.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(K.gap),
     ) {
-        TopBar(title, { nav.pop() })
+        Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
+            FitText(title, T.screen.copy(fontSize = 28.sp, lineHeight = 32.sp), Volt.text, Modifier.weight(1f), maxLines = 1)
+            IconCircle(Icons.Filled.Close, size = 40.dp, desc = "Cerrar") { nav.pop() }
+        }
         content()
     }
 }

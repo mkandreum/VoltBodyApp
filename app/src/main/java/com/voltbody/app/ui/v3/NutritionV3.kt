@@ -128,7 +128,7 @@ fun NutritionV3(repo: Repository) {
             Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(dateText, style = T.hello, color = Volt.textDim, maxLines = 1)
-                    Text("Nutrición", style = T.screen, color = Volt.text)
+                    MixTitle("Come bien, rinde más", maxLines = 1)
                 }
                 IconCircle(Icons.Outlined.Tune, desc = "Plan de comidas") { nav.push(Route.Section("diet")) }
             }

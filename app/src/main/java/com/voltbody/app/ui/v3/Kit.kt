@@ -1,6 +1,7 @@
 package com.voltbody.app.ui.v3
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
@@ -72,24 +73,47 @@ val Display: androidx.compose.ui.text.font.FontFamily = androidx.compose.ui.text
             variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(w)))
     }
 )
+/** Titulares: Bricolage Grotesque (moderna, contundente; tamano optico de display y algo condensada). */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+val TitleFont: androidx.compose.ui.text.font.FontFamily = androidx.compose.ui.text.font.FontFamily(
+    listOf(600, 700, 800).map { w ->
+        androidx.compose.ui.text.font.Font(
+            com.voltbody.app.R.font.bricolage, FontWeight(w),
+            variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(
+                androidx.compose.ui.text.font.FontVariation.weight(w),
+                androidx.compose.ui.text.font.FontVariation.width(85f),
+                androidx.compose.ui.text.font.FontVariation.Setting("opsz", 96f),
+            ),
+        )
+    }
+)
+
+/** Acento editorial: Instrument Serif cursiva (para la parte antes de la coma). */
+val SerifItalic: androidx.compose.ui.text.font.FontFamily = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(com.voltbody.app.R.font.instrument_serif_italic, FontWeight.Normal, androidx.compose.ui.text.font.FontStyle.Italic),
+)
+
+private fun tf(size: Int, w: Int, lh: Int = (size * 1.08f).toInt(), ls: Float = -0.02f) =
+    TextStyle(fontFamily = TitleFont, fontSize = size.sp, fontWeight = FontWeight(w), lineHeight = lh.sp, letterSpacing = ls.em)
+
 private fun ds(size: Int, w: Int, lh: Int = (size * 1.2f).toInt(), ls: Float = -0.02f) =
     TextStyle(fontFamily = Display, fontSize = size.sp, fontWeight = FontWeight(w), lineHeight = lh.sp, letterSpacing = ls.em)
 
 object T {
-    val hello = ts(12, 500)
-    val screen = ts(30, 500, 34, -0.035f)
-    val headline = ts(34, 500, 38, -0.04f)
-    val section = ts(16, 600, 22)
-    val cardTitle = ts(13, 600, 18)
-    val value = ds(18, 700, 24)
-    val unit = ts(11, 500, 14)
-    val hero = ds(30, 700, 36)
-    val heroXL = ds(36, 800, 42, -0.03f)
-    val display = ds(20, 600, 26)
-    val body = ts(13, 500, 19)
-    val caption = ts(11, 500, 15)
-    val button = ts(15, 700, 20)
-    val label = ts(10, 700, 13, 0.06f)
+    val hello = ts(13, 500, 18)
+    val screen = tf(38, 800, 42)
+    val headline = tf(40, 800, 43)
+    val section = tf(21, 700, 25, -0.01f)
+    val cardTitle = ts(14, 600, 19)
+    val value = ds(22, 700, 28)
+    val unit = ts(12, 500, 15)
+    val hero = ds(34, 700, 40)
+    val heroXL = ds(42, 800, 48, -0.03f)
+    val display = ds(20, 700, 26)
+    val body = ts(14, 500, 20)
+    val caption = ts(12, 500, 16)
+    val button = ts(16, 700, 20)
+    val label = ts(11, 700, 14, 0.06f)
 }
 
 object K {
@@ -116,16 +140,44 @@ fun Modifier.tap(scaleTo: Float = 0.96f, haptic: Boolean = true, onClick: () -> 
     val ctx = LocalContext.current
     val src = remember { MutableInteractionSource() }
     val s = remember { Animatable(1f) }
+    val glow = remember { Animatable(0f) }
     LaunchedEffect(src) {
         src.interactions.collect { i ->
             when (i) {
-                is PressInteraction.Press -> launch { s.animateTo(scaleTo, spring(0.7f, 1400f)) }
-                is PressInteraction.Release, is PressInteraction.Cancel -> launch { s.animateTo(1f, spring(0.45f, 900f)) }
+                is PressInteraction.Press -> {
+                    if (haptic) Haptics.selection(ctx)
+                    launch { s.animateTo(scaleTo, spring(0.7f, 1500f)) }
+                    launch { glow.animateTo(1f, tween(90)) }
+                }
+                is PressInteraction.Release, is PressInteraction.Cancel -> {
+                    // rebote con sobreimpulso al soltar
+                    launch { s.animateTo(1f, spring(0.38f, 700f)) }
+                    launch { glow.animateTo(0f, tween(260)) }
+                }
             }
         }
     }
     graphicsLayer { scaleX = s.value; scaleY = s.value }
+        .drawWithContent {
+            drawContent()
+            if (glow.value > 0.01f) drawRect(Color.White.copy(alpha = 0.07f * glow.value))
+        }
         .clickable(interactionSource = src, indication = null) { if (haptic) Haptics.light(ctx); onClick() }
+}
+
+/** Numero que "rueda" al cambiar (sube si aumenta, baja si disminuye). */
+@Composable
+fun RollingText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+    androidx.compose.animation.AnimatedContent(
+        targetState = text, modifier = modifier,
+        transitionSpec = {
+            val up = (targetState.filter { it.isDigit() }.toLongOrNull() ?: 0L) >= (initialState.filter { it.isDigit() }.toLongOrNull() ?: 0L)
+            val dir = if (up) 1 else -1
+            (androidx.compose.animation.slideInVertically(spring(0.75f, 500f)) { it * dir } + androidx.compose.animation.fadeIn(tween(160))) togetherWith
+                (androidx.compose.animation.slideOutVertically(tween(160)) { -it * dir } + androidx.compose.animation.fadeOut(tween(120)))
+        },
+        label = "roll",
+    ) { t -> Text(t, style = style, color = color, maxLines = 1) }
 }
 
 // ─────────────────────────────── Estructura ───────────────────────────────
@@ -172,12 +224,12 @@ fun CardHeader(icon: ImageVector, tint: Color, title: String, chevron: Boolean =
 fun ValueUnit(value: String, unit: String?, modifier: Modifier = Modifier, style: TextStyle = T.value, unitBelow: Boolean = false) {
     if (unitBelow) {
         Column(modifier) {
-            Text(value, style = style, color = Volt.text, maxLines = 1)
+            RollingText(value, style, Volt.text)
             if (unit != null) Text(unit, style = T.unit, color = Volt.textDim, maxLines = 1)
         }
     } else {
         Row(modifier, verticalAlignment = Alignment.Bottom) {
-            Text(value, style = style, color = Volt.text, maxLines = 1, modifier = Modifier.alignByBaseline())
+            RollingText(value, style, Volt.text, Modifier.alignByBaseline())
             if (unit != null) {
                 Spacer(Modifier.width(4.dp))
                 Text(unit, style = T.unit, color = Volt.textDim, maxLines = 1, modifier = Modifier.alignByBaseline())
@@ -500,4 +552,32 @@ fun gymTerm(s: String): String {
     )
     rules.forEach { (re, v) -> r = r.replace(re, v) }
     return r.replaceFirstChar { it.uppercase() }
+}
+
+
+/**
+ * Titulo con dos tipografias: lo anterior a la primera coma (coma incluida) en serif cursiva y en tono
+ * suave; el resto en la grotesca de titulares. Sin coma, todo en la de titulares. Se encoge si no cabe.
+ */
+@Composable
+fun MixTitle(text: String, style: TextStyle = T.screen, color: Color = Volt.text, modifier: Modifier = Modifier, maxLines: Int = 2, minScale: Float = 0.7f) {
+    var scale by remember(text, style) { mutableFloatStateOf(1f) }
+    var ready by remember(text, style) { mutableStateOf(false) }
+    val comma = text.indexOf(',')
+    val serifColor = Volt.textDim
+    val annotated = remember(text, serifColor, color) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            if (comma > 0) {
+                pushStyle(androidx.compose.ui.text.SpanStyle(fontFamily = SerifItalic, fontWeight = FontWeight.Normal, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = serifColor, letterSpacing = 0.em))
+                append(text.substring(0, comma + 1))
+                pop()
+                append(text.substring(comma + 1))
+            } else append(text)
+        }
+    }
+    Text(
+        annotated, style = style.copy(fontSize = style.fontSize * scale, lineHeight = if (style.lineHeight.isSpecified) style.lineHeight * scale else style.lineHeight),
+        color = color, maxLines = maxLines, softWrap = true, modifier = modifier.drawWithContent { if (ready) drawContent() },
+        onTextLayout = { r -> if (r.hasVisualOverflow && scale > minScale) scale = (scale - 0.06f).coerceAtLeast(minScale) else ready = true },
+    )
 }

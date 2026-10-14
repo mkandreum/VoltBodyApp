@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -99,9 +100,11 @@ fun AppShell(repo: Repository) {
             }
 
             // Pila de pantallas secundarias: entran deslizando desde la derecha.
-            val depth = stack.size
+            // Paginas (detalle de dia, sesion, pose) a pantalla completa; las secciones van en hoja inferior.
+            val pages = stack.filter { it !is Route.Section }
+            val depth = pages.size
             AnimatedContent(
-                targetState = stack.lastOrNull() to depth, modifier = Modifier.fillMaxSize(),
+                targetState = pages.lastOrNull() to depth, modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
                     val forward = targetState.second >= initialState.second
                     if (forward) (slideInHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeIn(tween(160))) togetherWith fadeOut(tween(120))
@@ -113,9 +116,13 @@ fun AppShell(repo: Repository) {
                 else Box(Modifier.fillMaxSize())
             }
 
+            // Hoja inferior para secciones (se cierra deslizando o tocando fuera)
+            val section = stack.lastOrNull() as? Route.Section
+            if (section != null) SectionSheet(repo, section.id) { nav.pop() }
+
             // Barra flotante: se oculta (desliza abajo) dentro de pantallas secundarias.
             androidx.compose.animation.AnimatedVisibility(
-                visible = stack.isEmpty(),
+                visible = pages.isEmpty(),
                 modifier = Modifier.align(Alignment.BottomCenter),
                 enter = slideInVertically(spring(0.85f, 700f)) { it } + fadeIn(),
                 exit = slideOutVertically(tween(160)) { it } + fadeOut(tween(120)),
@@ -164,9 +171,32 @@ private fun FloatingNav(selected: Tab, onSelect: (Tab) -> Unit) {
         tabs.forEach { t ->
             val active = t == selected
             val tint by animateColorAsState(if (active) Color(0xFF0A0A0A) else Color(0xFF8A8A8A), tween(140), label = "tint")
+            val bounce = remember { androidx.compose.animation.core.Animatable(1f) }
+            LaunchedEffect(active) {
+                if (active) { bounce.snapTo(0.7f); bounce.animateTo(1f, spring(0.35f, 600f)) }
+            }
             Box(Modifier.weight(1f).fillMaxHeight().tap(0.86f, haptic = false) { onSelect(t) }, contentAlignment = Alignment.Center) {
-                Icon(t.icon, t.label, tint = tint, modifier = Modifier.size(if (t == Tab.Train) 26.dp else 24.dp))
+                Icon(t.icon, t.label, tint = tint, modifier = Modifier.size(if (t == Tab.Train) 26.dp else 24.dp).graphicsLayer { scaleX = bounce.value; scaleY = bounce.value })
             }
         }
     }
+}
+
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun SectionSheet(repo: Repository, id: String, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val state = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    LaunchedEffect(id) { Haptics.light(ctx) }
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = { Haptics.selection(ctx); onDismiss() },
+        sheetState = state,
+        containerColor = Color(0xFF141414),
+        scrimColor = Color.Black.copy(alpha = 0.6f),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
+        dragHandle = {
+            Box(Modifier.padding(top = 12.dp, bottom = 4.dp).size(width = 44.dp, height = 5.dp).background(Color(0x33FFFFFF), androidx.compose.foundation.shape.RoundedCornerShape(3.dp)))
+        },
+    ) { SectionHost(repo, id) }
 }

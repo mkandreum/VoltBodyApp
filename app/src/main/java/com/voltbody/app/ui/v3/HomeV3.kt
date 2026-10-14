@@ -90,7 +90,7 @@ fun HomeV3(repo: Repository) {
         Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(greeting(u), style = T.hello, color = Volt.textDim, maxLines = 1)
-                Text("Hola, ${u.name?.substringBefore(' ') ?: "atleta"}", style = T.screen, color = Volt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                MixTitle("Hola, ${u.name?.substringBefore(' ') ?: "atleta"}", maxLines = 1)
             }
             Box(Modifier.size(46.dp).clip(CircleShape).background(Volt.surface2).tap(0.9f) { nav.tab(Tab.Profile) }, contentAlignment = Alignment.Center) {
                 if (u.profilePhoto != null) DataImage(u.profilePhoto, Modifier.fillMaxSize(), maxPx = 160)
@@ -128,7 +128,7 @@ fun HomeV3(repo: Repository) {
             } else null)
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.Bottom) {
-                ValueUnit(fmt(week.getOrElse(sel) { 0f }.toLong()), "Pasos", unitBelow = true)
+                ValueUnit(fmt(week.getOrElse(sel) { 0f }.toLong()), "Pasos", unitBelow = true, style = T.hero)
                 Spacer(Modifier.width(22.dp))
                 ValueUnit(fmt1(if (sel == week.lastIndex) km else week[sel] * 0.00075), "km", unitBelow = true)
             }
