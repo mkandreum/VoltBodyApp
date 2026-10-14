@@ -127,7 +127,7 @@ fun LoginV3(repo: Repository) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(Volt.accent), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Bolt, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Bolt, null, tint = Volt.onAccent, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(10.dp))
                 Text("VoltBody", style = T.section, color = Volt.text, modifier = Modifier.weight(1f))

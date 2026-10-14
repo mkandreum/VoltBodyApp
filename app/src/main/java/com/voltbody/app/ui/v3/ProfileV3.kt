@@ -135,7 +135,7 @@ fun ProfileV3(repo: Repository) {
 @Composable
 private fun ArtTile(emoji: String, title: String, value: String, palette: List<Color>, seed: Int, modifier: Modifier, onClick: () -> Unit) {
     Box(modifier.height(132.dp).clip(RoundedCornerShape(26.dp)).tap(0.97f, onClick = onClick)) {
-        FlutedArt(Modifier.matchParentSize(), palette, seed = seed, stripe = 11.dp)
+        FlutedArt(Modifier.matchParentSize(), palette, seed = seed, stripe = 11.dp, animated = false)
         Text(emoji, fontSize = 22.sp, modifier = Modifier.padding(14.dp))
         Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
             FitText(title, T.display.copy(fontSize = 18.sp), Color.White, maxLines = 1)
@@ -147,8 +147,8 @@ private fun ArtTile(emoji: String, title: String, value: String, palette: List<C
 @Composable
 private fun Stat(value: String, label: String, modifier: Modifier) {
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Volt.surface2).padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = T.value.copy(fontSize = 18.sp), color = Volt.text, maxLines = 1)
-        Text(label, style = T.caption, color = Volt.textDim, maxLines = 1)
+        Text(value, style = T.value.copy(fontSize = 18.sp), color = Volt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, style = T.caption, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -249,7 +249,7 @@ fun SectionHost(repo: Repository, id: String) {
                 Row(Modifier.fillMaxWidth().glassPanel(RoundedCornerShape(20.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(ex.name, style = T.cardTitle, color = Volt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(setsLabel(ex) + " · " + ex.muscleGroup, style = T.caption, color = Volt.textDim, maxLines = 1)
+                        Text(setsLabel(ex) + " · " + ex.muscleGroup, style = T.caption, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconCircle(Icons.Filled.Close, size = 34.dp, desc = "Quitar") { scope.launch { repo.saveCustomWorkout(custom.filter { it.id != ex.id }) } }
                 }

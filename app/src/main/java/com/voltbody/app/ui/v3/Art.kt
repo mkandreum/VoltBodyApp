@@ -146,7 +146,7 @@ fun CircleMedia(
                 Modifier.align(Alignment.TopEnd).offset(x = b * 0.12f, y = -b * 0.05f).size(b).clip(CircleShape).background(ring).padding(5.dp)
                     .clip(CircleShape).background(bubbleColor),
                 contentAlignment = Alignment.Center,
-            ) { Text(bubble, style = T.cardTitle, color = Color(0xFF0A0A0A), maxLines = 1) }
+            ) { Text(bubble, style = T.cardTitle, color = Volt.onAccent, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
     }
 }

@@ -23,25 +23,35 @@ val Jakarta: FontFamily = FontFamily(
 private fun st(size: Int, weight: Int, lh: Int = (size * 1.3f).toInt(), ls: TextUnit = 0.sp) =
     TextStyle(fontFamily = Jakarta, fontSize = size.sp, fontWeight = FontWeight(weight), lineHeight = lh.sp, letterSpacing = ls)
 
-/** Estilos del sistema de diseno (sin color: heredan o se pasan explicitos). */
+/** Titulares con la grotesca de la v3 (Bricolage) y cifras con la display (Unbounded), igual que [com.voltbody.app.ui.v3.T]. */
+private fun hd(size: Int, weight: Int, lh: Int, ls: Float = -0.02f) =
+    TextStyle(fontFamily = com.voltbody.app.ui.v3.TitleFont, fontSize = size.sp, fontWeight = FontWeight(weight), lineHeight = lh.sp, letterSpacing = ls.em)
+private fun num(size: Int, lh: Int, ls: Float = -0.02f) =
+    TextStyle(fontFamily = com.voltbody.app.ui.v3.Display, fontSize = size.sp, fontWeight = FontWeight(700), lineHeight = lh.sp, letterSpacing = ls.em)
+
+/**
+ * Estilos del sistema de diseno (sin color: heredan o se pasan explicitos).
+ * Alineados con la v3 para que las tarjetas antiguas no desentonen: titulares en Bricolage,
+ * cifras en Unbounded y cuerpo en Jakarta.
+ */
 object VoltType {
-    val display = st(52, 800, 54, (-0.02f).em)
-    val h1 = st(32, 800, 36, (-0.02f).em)
-    val h2 = st(22, 700, 27, (-0.01f).em)
-    val title = st(17, 700, 22)
+    val display by lazy { hd(48, 800, 50) }
+    val h1 by lazy { hd(32, 800, 35) }
+    val h2 by lazy { hd(22, 700, 26, -0.01f) }
+    val title = st(16, 600, 21)
     val body = st(14, 500, 20)
-    val label = st(11, 700, 14, 0.08.em)
-    /** Numeros grandes: siempre 800. */
-    val numberXL = st(64, 800, 66, (-0.03f).em)
-    val numberL = st(40, 800, 44, (-0.02f).em)
-    val numberM = st(28, 800, 32, (-0.01f).em)
-    val numberS = st(18, 800, 22)
+    val label = st(11, 700, 14, 0.06.em)
+    /** Numeros: fuente display de la v3 (ancha), tamanos algo menores que antes para compensar. */
+    val numberXL by lazy { num(52, 58, -0.03f) }
+    val numberL by lazy { num(34, 40) }
+    val numberM by lazy { num(24, 30) }
+    val numberS by lazy { num(17, 22, 0f) }
 }
 
-val VoltTypography = Typography(
-    displayLarge = VoltType.display, displayMedium = st(44, 800, 48, (-0.02f).em), displaySmall = st(36, 800, 40, (-0.02f).em),
-    headlineLarge = VoltType.h1, headlineMedium = st(26, 800, 30, (-0.015f).em), headlineSmall = VoltType.h2,
+val VoltTypography by lazy { Typography(
+    displayLarge = VoltType.display, displayMedium = hd(44, 800, 48), displaySmall = hd(36, 800, 40),
+    headlineLarge = VoltType.h1, headlineMedium = hd(26, 800, 30, -0.015f), headlineSmall = VoltType.h2,
     titleLarge = st(20, 700, 26), titleMedium = VoltType.title, titleSmall = st(14, 700, 18),
     bodyLarge = st(15, 500, 22), bodyMedium = VoltType.body, bodySmall = st(12, 500, 16),
     labelLarge = st(14, 700, 18), labelMedium = st(12, 700, 16), labelSmall = VoltType.label,
-)
+) }

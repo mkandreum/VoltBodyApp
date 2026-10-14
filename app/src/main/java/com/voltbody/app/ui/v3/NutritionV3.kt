@@ -132,7 +132,9 @@ fun NutritionV3(repo: Repository) {
                     repo.setMealEaten(key, meal.id, false); repo.setMealEaten(key, newMeal.id, true)
                 }
                 Haptics.success(ctx)
-                repo.toast("success", "Comida cambiada ${foodEmoji(newMeal)}", newMeal.name)
+                repo.toastWithAction("success", "Comida cambiada ${foodEmoji(newMeal)}", newMeal.name, "Deshacer") {
+                    scope.launch { repo.saveProfile(withPlan = true) { s -> s.copy(diet = s.diet?.replaceMeal(day, newMeal.id, meal)) } }
+                }
                 swapMeal = null; swapAlt = null
             } catch (e: Exception) {
                 repo.toast("error", "No se pudo cambiar la comida", e.message)
@@ -144,7 +146,7 @@ fun NutritionV3(repo: Repository) {
         Screen {
             Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(dateText, style = T.hello, color = Volt.textDim, maxLines = 1)
+                    Text(dateText, style = T.hello, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     MixTitle("Come bien, rinde más", maxLines = 1)
                 }
                 IconCircle(Icons.Outlined.ShoppingCart, desc = "Lista de la compra") { nav.push(Route.Section("shopping")) }
@@ -332,7 +334,7 @@ private fun MacroChip(emoji: String, label: String, value: Int, target: Int, col
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text("$value", style = T.value.copy(fontSize = 16.sp), color = Volt.text)
-            Text(" /${target}g", style = T.caption, color = Volt.textDim, maxLines = 1)
+            Text(" /${target}g", style = T.caption, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(6.dp))
         Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Volt.bg)) {
@@ -367,14 +369,14 @@ private fun MealTimelineRow(m: Meal, eaten: Boolean, next: Boolean, last: Boolea
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(mealMoment(m.time).uppercase(), style = T.label, color = if (next) Volt.accent else Volt.textDim, maxLines = 1)
+                    Text(mealMoment(m.time).uppercase(), style = T.label, color = if (next) Volt.accent else Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (next) {
                         Spacer(Modifier.width(6.dp))
-                        Text("AHORA", style = T.label, color = Color(0xFF0A0A0A), modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Volt.accent).padding(horizontal = 5.dp, vertical = 1.dp))
+                        Text("AHORA", style = T.label, color = Volt.onAccent, modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Volt.accent).padding(horizontal = 5.dp, vertical = 1.dp))
                     }
                 }
                 FitText(m.name, T.cardTitle.copy(fontSize = 14.sp), if (eaten) Volt.textDim else Volt.text, maxLines = 2)
-                Text("${m.calories} kcal · P${m.protein} C${m.carbs} G${m.fat}", style = T.caption, color = Volt.textDim, maxLines = 1)
+                Text("${m.calories} kcal · P${m.protein} C${m.carbs} G${m.fat}", style = T.caption, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(6.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -388,7 +390,7 @@ private fun MealTimelineRow(m: Meal, eaten: Boolean, next: Boolean, last: Boolea
                         Modifier.size(36.dp).graphicsLayer { val s = 1f + 0.18f * pop * (1f - pop) * 4f; scaleX = s; scaleY = s }
                             .clip(CircleShape).background(checkBg).border(1.5.dp, if (eaten) Volt.accent else Volt.textDim.copy(alpha = 0.5f), CircleShape),
                         contentAlignment = Alignment.Center,
-                    ) { if (eaten) Icon(Icons.Filled.Check, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(20.dp)) }
+                    ) { if (eaten) Icon(Icons.Filled.Check, null, tint = Volt.onAccent, modifier = Modifier.size(20.dp)) }
                 }
                 Box(Modifier.size(48.dp).clip(CircleShape).tap(0.8f, onClick = onSwap), contentAlignment = Alignment.Center) {
                     Icon(Icons.Outlined.AutoAwesome, "Cambiar con IA", tint = Volt.accent, modifier = Modifier.size(20.dp))

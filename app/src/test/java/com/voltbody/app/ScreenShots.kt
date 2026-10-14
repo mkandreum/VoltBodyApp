@@ -96,6 +96,19 @@ class ScreenShots {
     @Test fun shopping() = sheetShot("sheet_shopping", { com.voltbody.app.ui.v3.NutritionV3(it) }) { com.voltbody.app.ui.v3.ShoppingSheet(it) }
     @Test fun trends() = sheetShot("sheet_trends", { com.voltbody.app.ui.v3.ActivityV3(it) }) { com.voltbody.app.ui.v3.TrendsSheet(it) }
     @Test fun health() = sheetShot("sheet_health", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "health") }
+    @Test fun s_personal() = sheetShot("sec_personal", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "personal") }
+    @Test fun s_photos() = sheetShot("sec_photos", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "photos") }
+    @Test fun s_achievements() = sheetShot("sec_achievements", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "achievements") }
+    @Test fun s_habits() = sheetShot("sec_habits", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "habits") }
+    @Test fun s_recovery() = sheetShot("sec_recovery", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "recovery") }
+    @Test fun s_report() = sheetShot("sec_report", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "report") }
+    @Test fun s_notifications() = sheetShot("sec_notifications", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "notifications") }
+    @Test fun s_theme() = sheetShot("sec_theme", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "theme") }
+    @Test fun s_server() = sheetShot("sec_server", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "server") }
+    @Test fun s_data() = sheetShot("sec_data", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "data") }
+    @Test fun s_diet() = sheetShot("sec_diet", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "diet") }
+    @Test fun s_fatigue() = sheetShot("sec_fatigue", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "fatigue") }
+    @Test fun s_library() = sheetShot("sec_library", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "library") }
     @Test fun weight() = sheetShot("sheet_weight", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "weight") }
 
     @Test fun login() = shot("login") { com.voltbody.app.ui.v3.LoginV3(it) }

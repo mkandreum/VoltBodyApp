@@ -91,10 +91,10 @@ fun HomeV3(repo: Repository) {
         // ── Cabecera
         Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(greeting(u), style = T.hello, color = Volt.textDim, maxLines = 1)
+                Text(greeting(u), style = T.hello, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 MixTitle("Hola, ${u.name?.substringBefore(' ') ?: "atleta"}", maxLines = 1)
             }
-            Box(Modifier.size(46.dp).clip(CircleShape).background(Volt.surface2).tap(0.9f) { nav.tab(Tab.Profile) }, contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(Volt.surface2).tap(0.9f) { nav.tab(Tab.Profile) }, contentAlignment = Alignment.Center) {
                 if (u.profilePhoto != null) DataImage(u.profilePhoto, Modifier.fillMaxSize(), maxPx = 160)
                 else Text((u.name ?: "A").take(1).uppercase(), style = T.section, color = Volt.accent)
             }
@@ -111,9 +111,9 @@ fun HomeV3(repo: Repository) {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     FitText(if (u.hasTodayRoutine) gymTerm(u.todayFocus ?: "Workout") else "Recarga y muévete", T.display.copy(fontSize = 17.sp), Color(0xFF0A0A0A), maxLines = 2, minScale = 0.8f)
-                    Text(u.dailyQuote ?: u.phrase, style = T.caption, color = Color(0xFF0A0A0A).copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(u.dailyQuote ?: u.phrase, style = T.caption, color = Volt.onAccent.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (u.hasTodayRoutine) Icon(Icons.Filled.PlayArrow, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(26.dp))
+                if (u.hasTodayRoutine) Icon(Icons.Filled.PlayArrow, null, tint = Volt.onAccent, modifier = Modifier.size(26.dp))
             }
         }
 
@@ -152,7 +152,8 @@ fun HomeV3(repo: Repository) {
                 CardHeader(Icons.Filled.WaterDrop, Volt.water, "Agua", chevron = false)
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ValueUnit(fmt(u.waterMl), "ml", Modifier.weight(1f), unitBelow = true)
+                    // En litros ("1,5 L"): cabe junto a los botones sin cortarse.
+                    ValueUnit(String.format(ES, "%.1f", u.waterMl / 1000.0), "litros", Modifier.weight(1f), unitBelow = true)
                     WaterStepButton(
                         Icons.Filled.Remove, "Quitar 250 ml", Volt.surface2, Volt.textDim,
                         enabled = u.waterMl > 0,
@@ -196,7 +197,7 @@ fun HomeV3(repo: Repository) {
                 }
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.size(44.dp).clip(CircleShape).background(Volt.accent), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.PlayArrow, "Empezar", tint = Color(0xFF0A0A0A))
+                    Icon(Icons.Filled.PlayArrow, "Empezar", tint = Volt.onAccent)
                 }
             }
         }

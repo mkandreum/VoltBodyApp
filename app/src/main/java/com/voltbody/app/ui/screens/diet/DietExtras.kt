@@ -157,7 +157,7 @@ fun SpecialDishCard(repo: Repository, diet: DietPlan, saved: SpecialDish?, modif
             }
         }
         Spacer(Modifier.height(14.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(14.dp)) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Volt.surface2).padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Equivalencias rápidas por macros", color = Volt.text, style = VoltType.body.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
                 Switch(
@@ -250,7 +250,7 @@ fun FoodPreferencesCard(repo: Repository, prefs: FoodPreferences, modifier: Modi
 
 @Composable
 private fun PrefRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Volt.surface2.copy(alpha = 0.6f)).padding(14.dp)) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Volt.surface2).padding(14.dp)) {
         Text(label, color = Volt.textDim, style = VoltType.body.copy(fontWeight = FontWeight.Bold))
         Spacer(Modifier.width(8.dp))
         Text(value, color = Volt.text, style = VoltType.body, modifier = Modifier.weight(1f), textAlign = TextAlign.End)

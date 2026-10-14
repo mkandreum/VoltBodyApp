@@ -464,8 +464,8 @@ fun ProgressLineChart(labels: List<String>, values: List<Float>, unit: String, m
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("mín ${fmtNum(mn.toDouble())}$unit", color = Volt.textDim, fontSize = 11.sp)
-            Text("máx ${fmtNum(mx.toDouble())}$unit", color = Volt.textDim, fontSize = 11.sp)
+            Text("mín ${fmtNum(mn.toDouble())}$unit", color = Volt.textDim, fontSize = 12.sp)
+            Text("máx ${fmtNum(mx.toDouble())}$unit", color = Volt.textDim, fontSize = 12.sp)
         }
     }
 }

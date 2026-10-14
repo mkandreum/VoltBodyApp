@@ -36,7 +36,7 @@ fun LoadingProfile(repo: Repository, error: String?) {
         Box(
             Modifier.size(84.dp).graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }.clip(CircleShape).background(Volt.accent),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Filled.Bolt, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(44.dp)) }
+        ) { Icon(Icons.Filled.Bolt, null, tint = Volt.onAccent, modifier = Modifier.size(44.dp)) }
         Spacer(Modifier.height(24.dp))
         if (error == null) {
             Text("Cargando tu plan…", style = T.section, color = Volt.text)

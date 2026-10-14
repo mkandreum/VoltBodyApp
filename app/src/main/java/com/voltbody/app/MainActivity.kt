@@ -145,19 +145,20 @@ private fun BoxScope.ToastHost(repo: Repository) {
     var shown by remember { mutableStateOf<com.voltbody.app.data.Toast?>(null) }
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        repo.toasts.collectLatest { shown = it; visible = true; delay(3200); visible = false }
+        // Con accion se deja mas tiempo para poder pulsar "Deshacer".
+        repo.toasts.collectLatest { shown = it; visible = true; delay(if (it.onAction != null) 5000 else 3200); visible = false }
     }
     AnimatedVisibility(
         visible, modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(16.dp),
         enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 800f)) { -it * 2 } + fadeIn(tween(120)) + scaleIn(tween(160, easing = EaseOutExpo), initialScale = 0.95f),
         exit = slideOutVertically(tween(120)) { -it * 2 } + fadeOut(tween(80)),
     ) {
-        shown?.let { ToastPill(it) }
+        shown?.let { t -> ToastPill(t) { t.onAction?.invoke(); visible = false } }
     }
 }
 
 @Composable
-private fun ToastPill(t: com.voltbody.app.data.Toast) {
+private fun ToastPill(t: com.voltbody.app.data.Toast, onAction: () -> Unit = {}) {
     val shape = RoundedCornerShape(28.dp)
     val info = t.type != "error" && t.type != "success"
     val brush = when (t.type) {
@@ -177,6 +178,13 @@ private fun ToastPill(t: com.voltbody.app.data.Toast) {
         Column(Modifier.weight(1f, fill = false)) {
             Text(t.title, color = fg, style = VoltType.title, maxLines = 2)
             t.message?.let { Text(it, color = fg.copy(alpha = 0.78f), style = VoltType.body.copy(fontSize = 12.sp, lineHeight = 16.sp), maxLines = 3) }
+        }
+        if (t.actionLabel != null) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp)).pressScale(onAction).padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(t.actionLabel, color = if (info) Volt.accent else fg, style = VoltType.title.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1) }
         }
     }
 }

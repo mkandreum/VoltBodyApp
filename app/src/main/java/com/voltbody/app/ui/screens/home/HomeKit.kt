@@ -52,15 +52,15 @@ internal fun HmGradientBar(progress: Float, modifier: Modifier = Modifier, heigh
     )
 }
 
-/** Cabecera de tarjeta: icono en burbuja tintada + etiqueta en mayusculas. */
+/** Cabecera de tarjeta (como la v3): icono en cuadro redondeado tintado + titulo en tono normal. */
 @Composable
 internal fun HmTileHeader(icon: ImageVector, tint: Color, title: String, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(30.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp)).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = tint, modifier = Modifier.size(17.dp))
         }
-        Spacer(Modifier.width(8.dp))
-        Text(title.uppercase(), color = Volt.textDim, style = VoltType.label, maxLines = 1)
+        Spacer(Modifier.width(10.dp))
+        Text(title, color = Volt.text, style = VoltType.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -107,7 +107,7 @@ internal fun HmGhostPill(
 ) {
     Row(
         modifier.height(height).pressScaleIf(enabled, 0.95f, onClick).clip(CircleShape).background(Volt.surface2)
-            .border(1.dp, Volt.border, CircleShape).padding(horizontal = 18.dp),
+            .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
     ) {
         if (icon != null) {

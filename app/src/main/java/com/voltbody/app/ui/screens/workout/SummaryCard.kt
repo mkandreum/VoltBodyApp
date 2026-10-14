@@ -272,7 +272,7 @@ fun SummaryDialog(data: WorkoutSummaryData, onDismiss: () -> Unit, onToast: (Str
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("¡Entreno completado!", color = Volt.text, style = VoltType.h1, modifier = Modifier.weight(1f))
-                    Box(Modifier.size(46.dp).clip(CircleShape).background(Volt.surface).pressScale(onDismiss), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(Volt.surface).pressScale(onDismiss), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Close, "Cerrar", tint = Volt.text)
                     }
                 }

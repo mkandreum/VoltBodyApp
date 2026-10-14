@@ -279,7 +279,7 @@ fun DayDetail(
                                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                                 ) {
                                     Text(d.short, color = if (current) Volt.accent else if (occupied) Volt.textDim.copy(alpha = 0.6f) else CAL_OK, style = VoltType.body.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold))
-                                    Text(if (occupied) (if (current) "Actual" else "Ocupado") else "Libre", color = Volt.textDim, fontSize = 9.sp)
+                                    Text(if (occupied) (if (current) "Actual" else "Ocupado") else "Libre", color = Volt.textDim, fontSize = 12.sp)
                                 }
                             }
                         }

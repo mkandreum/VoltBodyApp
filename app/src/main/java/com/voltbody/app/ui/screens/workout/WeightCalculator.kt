@@ -130,7 +130,7 @@ fun WeightCalculator(
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text("Calculadora de carga y discos", color = Volt.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Text(category.label, color = Volt.textDim, fontSize = 11.sp)
+                Text(category.label, color = Volt.textDim, fontSize = 12.sp)
             }
             Text(if (total > 0) "${fmtNum(total)} kg" else "Configurar", color = Volt.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(4.dp))
@@ -170,7 +170,7 @@ fun WeightCalculator(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
                                     Text("${fmtNum(kg)} kg", color = if (sel) Volt.accent else Volt.text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text(short, color = Volt.textDim, fontSize = 10.sp)
+                                    Text(short, color = Volt.textDim, fontSize = 12.sp)
                                 }
                             }
                         }
@@ -250,7 +250,7 @@ fun WeightCalculator(
                                         else -> "${fmtNum(abs(gap))} kg por encima de la meta"
                                     },
                                     color = when { abs(gap) < 1e-9 -> Volt.accent2; gap > 0 -> PrGold; else -> Volt.water },
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                 )
                             }
                         }

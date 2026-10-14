@@ -128,6 +128,8 @@ object K {
 
 /** Entrada corta y nitida (fade + subida 14dp). Lectura en fase draw: no recompone. */
 fun Modifier.enter(index: Int = 0): Modifier = composed {
+    // "Quitar animaciones" del sistema: aparece directamente, sin movimiento decorativo.
+    if (com.voltbody.app.ui.rememberReduceMotion()) return@composed Modifier
     val a = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         delay(index.coerceAtMost(8) * 28L)
@@ -178,7 +180,7 @@ fun RollingText(text: String, style: TextStyle, color: Color, modifier: Modifier
                 (androidx.compose.animation.slideOutVertically(tween(160)) { -it * dir } + androidx.compose.animation.fadeOut(tween(120)))
         },
         label = "roll",
-    ) { t -> Text(t, style = style, color = color, maxLines = 1) }
+    ) { t -> Text(t, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 // ─────────────────────────────── Estructura ───────────────────────────────
@@ -228,7 +230,7 @@ fun ValueUnit(value: String, unit: String?, modifier: Modifier = Modifier, style
     if (unitBelow) {
         Column(modifier) {
             RollingText(value, style, Volt.text)
-            if (unit != null) Text(unit, style = T.unit, color = Volt.textDim, maxLines = 1)
+            if (unit != null) Text(unit, style = T.unit, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     } else {
         Row(modifier, verticalAlignment = Alignment.Bottom) {
@@ -261,7 +263,7 @@ fun LimeButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     ) {
         if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = fg, strokeWidth = 2.dp)
         else {
-            Text(text, style = T.button, color = fg, maxLines = 1)
+            Text(text, style = T.button, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (icon != null) { Spacer(Modifier.width(8.dp)); Icon(icon, null, tint = fg, modifier = Modifier.size(18.dp)) }
         }
     }
@@ -275,7 +277,7 @@ fun DarkButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text, style = T.cardTitle, color = tint, maxLines = 1)
+        Text(text, style = T.cardTitle, color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -287,7 +289,7 @@ fun SmallPill(text: String, modifier: Modifier = Modifier, icon: ImageVector? = 
             .then(if (onClick != null) Modifier.tap(0.94f, onClick = onClick) else Modifier).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, style = T.cardTitle.copy(fontSize = 12.sp), color = if (selected) Color(0xFF0A0A0A) else Volt.text, maxLines = 1)
+        Text(text, style = T.cardTitle.copy(fontSize = 12.sp), color = if (selected) Color(0xFF0A0A0A) else Volt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (icon != null) { Spacer(Modifier.width(4.dp)); Icon(icon, null, tint = if (selected) Color(0xFF0A0A0A) else Volt.text, modifier = Modifier.size(16.dp)) }
     }
 }
@@ -305,7 +307,7 @@ fun TopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, tra
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = T.section, color = Volt.text, modifier = Modifier.weight(1f), maxLines = 1)
+        Text(text, style = T.section, color = Volt.text, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (action != null && onAction != null) Text(action, style = T.caption, color = Volt.accent, modifier = Modifier.tap(0.94f, onClick = onAction).padding(4.dp))
     }
 }
@@ -345,7 +347,7 @@ fun MockBars(values: List<Float>, highlight: Int, bubble: String?, modifier: Mod
     val off = Volt.accent.copy(alpha = 0.32f)
     val bubbleBg = Color.White
     val textMeasurer = rememberTextMeasurer()
-    val bubbleStyle = T.label.copy(color = Color(0xFF0A0A0A), fontSize = 10.sp, letterSpacing = 0.sp)
+    val bubbleStyle = T.label.copy(color = Volt.onAccent, fontSize = 12.sp, letterSpacing = 0.sp)
     Canvas(
         modifier.then(
             if (onSelect != null) Modifier.pointerTapIndex(values.size, onSelect) else Modifier,

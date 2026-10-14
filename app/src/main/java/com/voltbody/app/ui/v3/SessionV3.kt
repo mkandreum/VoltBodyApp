@@ -265,7 +265,7 @@ fun SessionV3(repo: Repository, route: Route.Session) {
                         },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(if (resting) Icons.Filled.SkipNext else Icons.Filled.Check, if (resting) "Saltar descanso" else "Guardar serie", tint = Color(0xFF0A0A0A), modifier = Modifier.size(34.dp))
+                        Icon(if (resting) Icons.Filled.SkipNext else Icons.Filled.Check, if (resting) "Saltar descanso" else "Guardar serie", tint = Volt.onAccent, modifier = Modifier.size(34.dp))
                     }
                 }
                 IconCircle(Icons.Filled.ChevronRight, size = 54.dp, desc = "Siguiente", tint = if (idx < exercises.lastIndex) Volt.text else Volt.textDim) { goTo(idx + 1) }
@@ -325,7 +325,7 @@ private fun SessionRing(progress: Float, restEnd: Long, restTotal: Int, modifier
 private fun Stepper(label: String, value: String, modifier: Modifier, onMinus: () -> Unit, onPlus: () -> Unit) {
     val ctx = LocalContext.current
     Column(modifier.clip(RoundedCornerShape(20.dp)).background(Volt.surface).padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label.uppercase(), style = T.label, color = Volt.textDim, maxLines = 1)
+        Text(label.uppercase(), style = T.label, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             SmallRound(Icons.Filled.Remove, "Menos") { Haptics.selection(ctx); onMinus() }

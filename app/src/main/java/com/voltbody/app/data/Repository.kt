@@ -10,7 +10,8 @@ import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 
-data class Toast(val type: String, val title: String, val message: String? = null) // type: success|error|info
+/** type: success|error|info. Con [actionLabel]/[onAction] se muestra un boton (p. ej. "Deshacer"). */
+data class Toast(val type: String, val title: String, val message: String? = null, val actionLabel: String? = null, val onAction: (() -> Unit)? = null)
 
 /**
  * Estado en memoria alimentado por el servidor de la web (/api). En disco SOLO se guardan serverUrl,
@@ -53,6 +54,11 @@ class Repository(private val ctx: Context) {
     }
 
     fun toast(type: String, title: String, message: String? = null) { _toasts.tryEmit(Toast(type, title, message)) }
+
+    /** Aviso con accion (normalmente "Deshacer") para cambios que el usuario puede revertir. */
+    fun toastWithAction(type: String, title: String, message: String?, actionLabel: String, onAction: () -> Unit) {
+        _toasts.tryEmit(Toast(type, title, message, actionLabel, onAction))
+    }
 
     // ───────────────────────── Auth ─────────────────────────
     suspend fun login(email: String, password: String) = authenticate("/auth/login", email, password, null)

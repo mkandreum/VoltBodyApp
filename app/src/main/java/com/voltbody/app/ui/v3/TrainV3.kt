@@ -161,7 +161,7 @@ private fun DayHero(day: WorkoutDay, tag: String, done: Set<String>, gif: ImageL
             Row(Modifier.align(Alignment.BottomStart).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.AccessTime, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("$min min · ${day.exercises.size} ejercicios", style = T.body, color = Color.White, maxLines = 1)
+                Text("$min min · ${day.exercises.size} ejercicios", style = T.body, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             CircleMedia(120.dp, if (doneCount > 0) "$doneCount/${day.exercises.size}" else "${day.exercises.size}", Modifier.align(Alignment.CenterEnd).padding(end = 18.dp), ring = Color(0x00000000)) {
                 if (first != null && first.gifUrl.isNotBlank()) ExerciseImage(first.gifUrl, gif, Modifier.fillMaxSize(), 360, 360)
@@ -200,7 +200,7 @@ fun ExerciseRow(ex: Exercise, index: Int, done: Boolean, gif: ImageLoader, onCli
             FitText(ex.name, T.cardTitle.copy(fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp)), Volt.text, maxLines = 2)
             Text(setsLabel(ex) + if (ex.muscleGroup.isNotBlank()) " · ${ex.muscleGroup}" else "", style = T.caption, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (done) Box(Modifier.size(28.dp).clip(CircleShape).background(Volt.accent), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Check, "Hecho", tint = Color(0xFF0A0A0A), modifier = Modifier.size(16.dp)) }
+        if (done) Box(Modifier.size(28.dp).clip(CircleShape).background(Volt.accent), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Check, "Hecho", tint = Volt.onAccent, modifier = Modifier.size(16.dp)) }
         else Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Volt.textDim)
         Spacer(Modifier.width(4.dp))
     }

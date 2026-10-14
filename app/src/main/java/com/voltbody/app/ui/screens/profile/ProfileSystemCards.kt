@@ -60,14 +60,16 @@ private fun StatusDot(ok: Boolean) {
     Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(if (ok) Volt.accent else Volt.textDim))
 }
 
+/** Boton secundario sobrio (como DarkButton de la v3): neutro; solo las acciones destructivas van en rojo. */
 @Composable
 private fun SmallButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false, onClick: () -> Unit) {
-    val c = if (danger) Volt.danger else Volt.accent
+    val fg = if (danger) Volt.danger else Volt.text
     Box(
-        modifier.height(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(c.copy(alpha = if (enabled) 0.14f else 0.05f))
+        modifier.height(48.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (danger) Volt.danger.copy(alpha = 0.10f) else Volt.surface2)
             .let { if (enabled) it.pressScale(onClick) else it },
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (enabled) c else c.copy(alpha = 0.4f), style = VoltType.body.copy(fontWeight = FontWeight.Bold)) }
+    ) { Text(text, color = if (enabled) fg else Volt.textDim, style = VoltType.body.copy(fontWeight = FontWeight.Bold), maxLines = 1) }
 }
 
 /**

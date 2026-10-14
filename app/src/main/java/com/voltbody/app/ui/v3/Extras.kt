@@ -75,6 +75,8 @@ private class ShoppingChecks(ctx: Context, week: LocalDate) {
     }
 
     fun clear() { done = emptySet(); prefs.edit().remove(key).apply() }
+
+    fun restore(ids: Set<String>) { done = ids; prefs.edit().putStringSet(key, ids).apply() }
 }
 
 /** Hoja "Lista de la compra": ingredientes de los 7 dias del menu, sumados y por pasillo, con check y compartir. */
@@ -117,7 +119,12 @@ fun ShoppingSheet(repo: Repository) {
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
                     runCatching { ctx.startActivity(Intent.createChooser(send, "Compartir lista").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }, Modifier.weight(1f), icon = Icons.Outlined.Share, height = 48.dp)
-                if (doneCount > 0) DarkButton("Vaciar marcas", { Haptics.light(ctx); checks.clear() }, Modifier.weight(1f), height = 48.dp, tint = Volt.textDim)
+                if (doneCount > 0) DarkButton("Vaciar marcas", {
+                    Haptics.light(ctx)
+                    val before = checks.done
+                    checks.clear()
+                    repo.toastWithAction("info", "Marcas vaciadas", null, "Deshacer") { checks.restore(before) }
+                }, Modifier.weight(1f), height = 48.dp, tint = Volt.textDim)
             }
             if (diet?.week.isNullOrEmpty()) {
                 Spacer(Modifier.height(10.dp))
@@ -156,14 +163,14 @@ private fun ShoppingRow(item: ShoppingItem, checked: Boolean, onToggle: () -> Un
             Modifier.size(24.dp).clip(CircleShape).background(box)
                 .border(1.5.dp, if (checked) Volt.accent else Volt.textDim.copy(alpha = 0.5f), CircleShape),
             contentAlignment = Alignment.Center,
-        ) { if (checked) Icon(Icons.Filled.Check, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(16.dp)) }
+        ) { if (checked) Icon(Icons.Filled.Check, null, tint = Volt.onAccent, modifier = Modifier.size(16.dp)) }
         Spacer(Modifier.width(12.dp))
         Text(
             item.name, style = T.cardTitle, color = if (checked) Volt.textDim else Volt.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
             textDecoration = if (checked) TextDecoration.LineThrough else null, modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(8.dp))
-        Text(item.amountLabel(), style = T.caption, color = Volt.textDim, maxLines = 1)
+        Text(item.amountLabel(), style = T.caption, color = Volt.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -304,7 +311,7 @@ private fun TrendBadge(delta: Float?, higherIsBetter: Boolean?, unit: String, de
     ) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(4.dp))
-        Text(txt, style = T.caption.copy(fontSize = 11.sp), color = tint, maxLines = 1)
+        Text(txt, style = T.caption.copy(fontSize = 12.sp), color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

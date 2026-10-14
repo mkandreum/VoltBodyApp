@@ -153,24 +153,23 @@ fun StatPill(label: String, value: String, modifier: Modifier = Modifier, color:
     }
 }
 
-/** CTA principal: pill con degradado de marca, spring al pulsar y haptica. */
+/** CTA principal (mismo aspecto que el boton de la v3): pildora de acento solido, spring al pulsar y haptica. */
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, loading: Boolean = false) {
-    val grad = Volt.gradient
+    val accent = Volt.accent
     val off = Volt.surface2
     val on = enabled && !loading
-    val sel = animateFloatAsState(if (on) 1f else 0f, tween(250), label = "btnOn")
+    val sel = animateFloatAsState(if (on) 1f else 0f, tween(200), label = "btnOn")
     Box(
-        modifier.fillMaxWidth().height(58.dp).pressScaleIf(on, 0.95f, onClick).clip(CircleShape)
+        modifier.fillMaxWidth().height(54.dp).pressScaleIf(on, 0.96f, onClick).clip(CircleShape)
             .drawBehind {
                 drawRect(off)
-                drawRect(grad, alpha = sel.value)
-                drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f * sel.value), Color.Transparent), endY = size.height * 0.55f))
+                drawRect(accent, alpha = sel.value)
             },
         contentAlignment = Alignment.Center,
     ) {
         if (loading) CircularProgressIndicator(Modifier.size(22.dp), color = Volt.onAccent, strokeWidth = 2.5.dp)
-        else Text(text, color = if (on) Volt.onAccent else Volt.textDim, style = VoltType.title)
+        else Text(text, color = if (on) Volt.onAccent else Volt.textDim, style = VoltType.title.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1)
     }
 }
 

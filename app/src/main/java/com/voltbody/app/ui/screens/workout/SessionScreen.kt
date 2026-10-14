@@ -212,7 +212,7 @@ fun SessionDialog(repo: Repository, spec: SessionSpec, onClose: () -> Unit) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
                 // ── Barra superior ──
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(46.dp).clip(CircleShape).background(Volt.surface).pressScale(onClose), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(Volt.surface).pressScale(onClose), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Close, "Cerrar sesión", tint = Volt.text)
                     }
                     Spacer(Modifier.width(12.dp))
@@ -386,11 +386,11 @@ fun HeartChip(ble: BleHeartRateClient, age: Int?, onClick: () -> Unit) {
         when {
             bpm != null && state == "connected" -> Column {
                 Text("$bpm", color = Volt.text, style = VoltType.numberS.copy(fontSize = 16.sp, lineHeight = 18.sp))
-                if (zoneName.isNotEmpty()) Text(zoneName, color = zoneColor, fontSize = 9.sp, lineHeight = 10.sp)
+                if (zoneName.isNotEmpty()) Text(zoneName, color = zoneColor, fontSize = 12.sp, lineHeight = 10.sp)
             }
-            state == "scanning" -> Text("Buscando…", color = Volt.textDim, fontSize = 11.sp)
-            state == "connecting" -> Text("Conectando…", color = Volt.textDim, fontSize = 11.sp)
-            state == "error" -> Text("Error", color = Volt.danger, fontSize = 11.sp)
+            state == "scanning" -> Text("Buscando…", color = Volt.textDim, fontSize = 12.sp)
+            state == "connecting" -> Text("Conectando…", color = Volt.textDim, fontSize = 12.sp)
+            state == "error" -> Text("Error", color = Volt.danger, fontSize = 12.sp)
             state == "connected" -> Text("--", color = Volt.text, style = VoltType.numberS)
             else -> Text("Pulso", color = Volt.textDim, fontSize = 12.sp)
         }

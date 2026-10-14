@@ -1,5 +1,6 @@
 package com.voltbody.app.ui.v3
 
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
@@ -258,7 +259,7 @@ fun SheetScaffold(
         ) {
             Column(Modifier.weight(1f)) {
                 if (eyebrow != null) {
-                    Text(eyebrow.uppercase(), style = T.label, color = Volt.accent, maxLines = 1)
+                    Text(eyebrow.uppercase(), style = T.label, color = Volt.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     androidx.compose.foundation.layout.Spacer(Modifier.height(2.dp))
                 }
                 val style = T.screen.copy(fontSize = 28.sp, lineHeight = 32.sp)
