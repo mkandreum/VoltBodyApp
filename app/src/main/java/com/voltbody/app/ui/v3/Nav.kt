@@ -204,7 +204,7 @@ private fun RouteHost(repo: Repository, route: Route) {
 
 /** Pildora oscura del mockup: circulo lima bajo el icono activo, que se desliza con spring. */
 @Composable
-private fun FloatingNav(selected: Tab, onSelect: (Tab) -> Unit) {
+internal fun FloatingNav(selected: Tab, onSelect: (Tab) -> Unit) {
     val tabs = Tab.entries
     val sel = tabs.indexOf(selected)
     val pos = animateFloatAsState(sel.toFloat(), spring(dampingRatio = 0.78f, stiffness = 800f), label = "navPos")

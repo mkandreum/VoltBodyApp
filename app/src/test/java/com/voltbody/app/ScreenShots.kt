@@ -4,6 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -112,6 +117,36 @@ class ScreenShots {
     @Test fun weight() = sheetShot("sheet_weight", { com.voltbody.app.ui.v3.ProfileV3(it) }) { com.voltbody.app.ui.v3.SectionHost(it, "weight") }
 
     @Test fun shell() = shot("shell") { com.voltbody.app.ui.v3.AppShell(it) }
+    /** Demo de la barra translucida sobre contenido de color (arte del Perfil + texto que pasa por debajo). */
+    @Test fun navDemo() = shot("nav_demo") {
+        Box(Modifier.fillMaxSize()) {
+            androidx.compose.foundation.layout.Column(
+                Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+            ) {
+                androidx.compose.material3.Text(
+                    "Este texto pasa por debajo de la barra",
+                    color = Volt.text, fontSize = 22.sp,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                androidx.compose.foundation.layout.Row(
+                    Modifier.padding(horizontal = 16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                ) {
+                    listOf(com.voltbody.app.ui.v3.ArtPalette.ember, com.voltbody.app.ui.v3.ArtPalette.violet, com.voltbody.app.ui.v3.ArtPalette.mint).forEachIndexed { i, pal ->
+                        com.voltbody.app.ui.v3.FlutedArt(
+                            Modifier.weight(1f).height(170.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp)),
+                            pal, seed = i, animated = false,
+                        )
+                    }
+                }
+                androidx.compose.foundation.layout.Spacer(Modifier.height(30.dp))
+            }
+            Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) {
+                com.voltbody.app.ui.v3.FloatingNav(com.voltbody.app.ui.v3.Tab.Profile) {}
+            }
+        }
+    }
+
     @Test fun login() = shot("login") { com.voltbody.app.ui.v3.LoginV3(it) }
     @Test fun home() = shot("home") { com.voltbody.app.ui.v3.HomeV3(it) }
     @Test fun activity() = shot("activity") { com.voltbody.app.ui.v3.ActivityV3(it) }
