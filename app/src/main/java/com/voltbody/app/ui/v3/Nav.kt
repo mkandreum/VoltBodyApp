@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.voltbody.app.data.Repository
 import com.voltbody.app.ui.theme.Volt
 import com.voltbody.app.util.Haptics
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Home("Inicio", Icons.Outlined.Home),
@@ -77,6 +79,7 @@ fun AppShell(repo: Repository) {
     val stack = remember { mutableStateListOf<Route>() }
     val nav = remember { Navigator(stack, { tab = it }) }
     val ctx = LocalContext.current
+    val hazeState = rememberHazeState()
 
     BackHandler(enabled = stack.isNotEmpty() || tab != Tab.Home) {
         if (stack.isNotEmpty()) nav.pop() else tab = Tab.Home
@@ -84,50 +87,57 @@ fun AppShell(repo: Repository) {
 
     CompositionLocalProvider(LocalNav provides nav) {
         Box(Modifier.fillMaxSize().background(Volt.bg)) {
-            // Pestanas: cambio rapido (fade + leve escala), sin deslizar toda la pantalla.
-            AnimatedContent(
-                targetState = tab, modifier = Modifier.fillMaxSize(),
-                transitionSpec = { (fadeIn(tween(160)) + scaleIn(tween(220), initialScale = 0.985f)) togetherWith fadeOut(tween(90)) },
-                label = "tab",
-            ) { t ->
-                when (t) {
-                    Tab.Home -> HomeV3(repo)
-                    Tab.Activity -> ActivityV3(repo)
-                    Tab.Train -> TrainV3(repo)
-                    Tab.Food -> NutritionV3(repo)
-                    Tab.Profile -> ProfileV3(repo)
+            // Todo lo que queda detras de la hoja se captura como origen del cristal esmerilado.
+            Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
+                // Pestanas: cambio rapido (fade + leve escala), sin deslizar toda la pantalla.
+                AnimatedContent(
+                    targetState = tab, modifier = Modifier.fillMaxSize(),
+                    transitionSpec = { (fadeIn(tween(160)) + scaleIn(tween(220), initialScale = 0.985f)) togetherWith fadeOut(tween(90)) },
+                    label = "tab",
+                ) { t ->
+                    when (t) {
+                        Tab.Home -> HomeV3(repo)
+                        Tab.Activity -> ActivityV3(repo)
+                        Tab.Train -> TrainV3(repo)
+                        Tab.Food -> NutritionV3(repo)
+                        Tab.Profile -> ProfileV3(repo)
+                    }
+                }
+
+                // Pila de pantallas secundarias: entran deslizando desde la derecha.
+                // Paginas (detalle de dia, sesion, pose) a pantalla completa; las secciones van en hoja inferior.
+                val pages = stack.filter { it !is Route.Section }
+                val depth = pages.size
+                AnimatedContent(
+                    targetState = pages.lastOrNull() to depth, modifier = Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        val forward = targetState.second >= initialState.second
+                        if (forward) (slideInHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeIn(tween(160))) togetherWith fadeOut(tween(120))
+                        else fadeIn(tween(140)) togetherWith (slideOutHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeOut(tween(160)))
+                    },
+                    label = "stack",
+                ) { (route, _) ->
+                    if (route != null) Box(Modifier.fillMaxSize().background(Volt.bg)) { RouteHost(repo, route) }
+                    else Box(Modifier.fillMaxSize())
+                }
+
+                // Barra flotante: se oculta (desliza abajo) dentro de pantallas secundarias.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = pages.isEmpty(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = slideInVertically(spring(0.85f, 700f)) { it } + fadeIn(),
+                    exit = slideOutVertically(tween(160)) { it } + fadeOut(tween(120)),
+                ) {
+                    FloatingNav(tab) { t -> if (t != tab) { Haptics.selection(ctx); tab = t } }
                 }
             }
 
-            // Pila de pantallas secundarias: entran deslizando desde la derecha.
-            // Paginas (detalle de dia, sesion, pose) a pantalla completa; las secciones van en hoja inferior.
-            val pages = stack.filter { it !is Route.Section }
-            val depth = pages.size
-            AnimatedContent(
-                targetState = pages.lastOrNull() to depth, modifier = Modifier.fillMaxSize(),
-                transitionSpec = {
-                    val forward = targetState.second >= initialState.second
-                    if (forward) (slideInHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeIn(tween(160))) togetherWith fadeOut(tween(120))
-                    else fadeIn(tween(140)) togetherWith (slideOutHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeOut(tween(160)))
-                },
-                label = "stack",
-            ) { (route, _) ->
-                if (route != null) Box(Modifier.fillMaxSize().background(Volt.bg)) { RouteHost(repo, route) }
-                else Box(Modifier.fillMaxSize())
-            }
-
-            // Hoja inferior para secciones (se cierra deslizando o tocando fuera)
+            // Hoja inferior de cristal esmerilado (desenfoca de verdad lo que hay detras).
             val section = stack.lastOrNull() as? Route.Section
-            if (section != null) SectionSheet(repo, section.id) { nav.pop() }
-
-            // Barra flotante: se oculta (desliza abajo) dentro de pantallas secundarias.
-            androidx.compose.animation.AnimatedVisibility(
-                visible = pages.isEmpty(),
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = slideInVertically(spring(0.85f, 700f)) { it } + fadeIn(),
-                exit = slideOutVertically(tween(160)) { it } + fadeOut(tween(120)),
-            ) {
-                FloatingNav(tab) { t -> if (t != tab) { Haptics.selection(ctx); tab = t } }
+            if (section != null) {
+                key(section.id) {
+                    GlassSheet(hazeState, onDismiss = { nav.pop() }) { SectionHost(repo, section.id) }
+                }
             }
         }
     }
@@ -182,21 +192,3 @@ private fun FloatingNav(selected: Tab, onSelect: (Tab) -> Unit) {
     }
 }
 
-
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun SectionSheet(repo: Repository, id: String, onDismiss: () -> Unit) {
-    val ctx = LocalContext.current
-    val state = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    LaunchedEffect(id) { Haptics.light(ctx) }
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = { Haptics.selection(ctx); onDismiss() },
-        sheetState = state,
-        containerColor = Color(0xFF141414),
-        scrimColor = Color.Black.copy(alpha = 0.6f),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
-        dragHandle = {
-            Box(Modifier.padding(top = 12.dp, bottom = 4.dp).size(width = 44.dp, height = 5.dp).background(Color(0x33FFFFFF), androidx.compose.foundation.shape.RoundedCornerShape(3.dp)))
-        },
-    ) { SectionHost(repo, id) }
-}

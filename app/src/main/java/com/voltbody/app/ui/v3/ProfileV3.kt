@@ -46,7 +46,6 @@ import com.voltbody.app.ui.screens.home.HeartRateCard
 import com.voltbody.app.ui.screens.home.PhotosCard
 import com.voltbody.app.ui.screens.home.RecoveryCard
 import com.voltbody.app.ui.screens.home.ReportCard
-import com.voltbody.app.ui.screens.home.WeightCard
 import com.voltbody.app.ui.screens.home.rememberHealthState
 import com.voltbody.app.ui.screens.profile.DataCard
 import com.voltbody.app.ui.screens.profile.HealthCard
@@ -186,7 +185,7 @@ fun SectionHost(repo: Repository, id: String) {
     val ctx = LocalContext.current
     when (id) {
         "personal" -> SectionScreen("Datos personales") { PersonalDataCard(repo, st.profile, st.notificationsEnabled) }
-        "weight" -> SectionScreen("Peso") { WeightCard(repo, st.weightLogs, scope) }
+        "weight" -> WeightSheet(repo, st.weightLogs)
         "photos" -> SectionScreen("Fotos de progreso") { PhotosCard(repo, st.progressPhotos, scope) }
         "achievements" -> SectionScreen("Logros") { AchievementsCard(st.achievements) }
         "habits" -> SectionScreen("Hábitos de la semana") {
