@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.WaterDrop
@@ -173,6 +174,21 @@ fun ActivityV3(repo: Repository) {
             ) { if (!weekly && sum.plannedExercises > 0) nav.push(Route.Day(mondayFirstIndex(selected))) else nav.tab(Tab.Train) }
             SummaryRow(Icons.Outlined.Restaurant, Volt.orange, "Comidas", "${sum.mealsEaten} de ${sum.meals} hechas") { nav.tab(Tab.Food) }
             SummaryRow(Icons.Outlined.MonitorWeight, Volt.water, "Peso", sum.weight?.let { "${trim(it)} kg" } ?: "Sin registro") { nav.push(Route.Section("weight")) }
+        }
+
+        // Evolucion del ultimo mes (pasos, sueno, HRV, FC reposo y peso) en una hoja.
+        val monthSteps = remember(st.metrics) {
+            val from = today.minusDays(29).toString()
+            st.metrics.filter { it.date >= from }.mapNotNull { it.steps }
+        }
+        Card(Modifier.fillMaxWidth().enter(6), onClick = { nav.push(Route.Section("trends")) }) {
+            CardHeader(Icons.AutoMirrored.Outlined.ShowChart, Volt.accent, "Tendencias del mes")
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (monthSteps.isEmpty()) "Conecta tu salud para ver tu evolución de 30 días."
+                else "${fmt(monthSteps.average().toInt())} pasos de media · sueño, HRV, pulso y peso",
+                style = T.caption, color = Volt.textDim, maxLines = 2,
+            )
         }
     }
 

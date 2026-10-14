@@ -1,6 +1,6 @@
 package com.voltbody.app.ui.v3
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
@@ -75,6 +75,9 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -184,7 +187,16 @@ fun GlassSheet(haze: HazeState, onDismiss: () -> Unit, content: @Composable Colu
     }
     val closeRef = remember { { close() } }
 
-    BackHandler { close() }
+    // Atras predictivo: la hoja baja siguiendo el gesto; al soltar se cierra, al cancelar vuelve con muelle.
+    PredictiveBackHandler { events ->
+        try {
+            events.collect { e -> settleJob.value?.cancel(); drag = e.progress * sheetH * 0.3f }
+            close()
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { animate(drag, 0f, animationSpec = spring(0.8f, 600f)) { v, _ -> drag = v } }
+            throw e
+        }
+    }
 
     // El desenfoque (y el tinte) se animan: el cristal se "esmerila" al entrar.
     val glass = HazeStyle(

@@ -177,6 +177,8 @@ fun SectionHost(repo: Repository, id: String) {
     when (id) {
         "personal" -> SectionScreen("Datos personales", "Perfil") { PersonalDataCard(repo, st.profile, st.notificationsEnabled) }
         "weight" -> WeightSheet(repo, st.weightLogs)
+        "shopping" -> ShoppingSheet(repo)
+        "trends" -> TrendsSheet(repo)
         "photos" -> SectionScreen("Fotos de progreso", "Tu progreso") { PhotosCard(repo, st.progressPhotos, scope) }
         "achievements" -> SectionScreen("Logros", "Tu progreso") { AchievementsCard(st.achievements) }
         "habits" -> SectionScreen("Hábitos de la semana", "Tu progreso") {

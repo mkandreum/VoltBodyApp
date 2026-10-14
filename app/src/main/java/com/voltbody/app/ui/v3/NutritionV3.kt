@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -28,6 +29,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -142,6 +147,8 @@ fun NutritionV3(repo: Repository) {
                     Text(dateText, style = T.hello, color = Volt.textDim, maxLines = 1)
                     MixTitle("Come bien, rinde más", maxLines = 1)
                 }
+                IconCircle(Icons.Outlined.ShoppingCart, desc = "Lista de la compra") { nav.push(Route.Section("shopping")) }
+                Spacer(Modifier.width(8.dp))
                 IconCircle(Icons.Outlined.Tune, desc = "Plan de comidas") { nav.push(Route.Section("diet")) }
             }
 
@@ -370,14 +377,22 @@ private fun MealTimelineRow(m: Meal, eaten: Boolean, next: Boolean, last: Boolea
                 Text("${m.calories} kcal · P${m.protein} C${m.carbs} G${m.fat}", style = T.caption, color = Volt.textDim, maxLines = 1)
             }
             Spacer(Modifier.width(6.dp))
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                // Area tactil de 48dp (minimo de accesibilidad) con el circulo visual de 36dp dentro.
                 if (canToggle) Box(
-                    Modifier.size(36.dp).graphicsLayer { val s = 1f + 0.18f * pop * (1f - pop) * 4f; scaleX = s; scaleY = s }
-                        .clip(CircleShape).background(checkBg).border(1.5.dp, if (eaten) Volt.accent else Volt.textDim.copy(alpha = 0.5f), CircleShape)
-                        .tap(0.85f, haptic = false, onClick = onToggle),
+                    Modifier.size(48.dp).clip(CircleShape).tap(0.85f, haptic = false, onClick = onToggle)
+                        .semantics { role = Role.Checkbox; stateDescription = if (eaten) "Comida hecha" else "Pendiente" },
                     contentAlignment = Alignment.Center,
-                ) { if (eaten) Icon(Icons.Filled.Check, "Hecha", tint = Color(0xFF0A0A0A), modifier = Modifier.size(20.dp)) }
-                Icon(Icons.Outlined.AutoAwesome, "Cambiar con IA", tint = Volt.accent, modifier = Modifier.size(20.dp).tap(0.8f, onClick = onSwap))
+                ) {
+                    Box(
+                        Modifier.size(36.dp).graphicsLayer { val s = 1f + 0.18f * pop * (1f - pop) * 4f; scaleX = s; scaleY = s }
+                            .clip(CircleShape).background(checkBg).border(1.5.dp, if (eaten) Volt.accent else Volt.textDim.copy(alpha = 0.5f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { if (eaten) Icon(Icons.Filled.Check, null, tint = Color(0xFF0A0A0A), modifier = Modifier.size(20.dp)) }
+                }
+                Box(Modifier.size(48.dp).clip(CircleShape).tap(0.8f, onClick = onSwap), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.AutoAwesome, "Cambiar con IA", tint = Volt.accent, modifier = Modifier.size(20.dp))
+                }
             }
         }
     }

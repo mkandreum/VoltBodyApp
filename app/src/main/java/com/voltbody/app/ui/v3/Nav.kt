@@ -1,6 +1,14 @@
 package com.voltbody.app.ui.v3
 
+import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.animate
+import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -85,6 +93,32 @@ fun AppShell(repo: Repository) {
         if (stack.isNotEmpty()) nav.pop() else tab = Tab.Home
     }
 
+    // Atras predictivo (Android 14+) en las paginas apiladas: la pagina se encoge y se redondea siguiendo
+    // el dedo, dejando ver la pestana de debajo; al soltar se cierra y si se cancela vuelve con muelle.
+    // Las hojas de seccion tienen su propio gesto (GlassSheet). El progreso se lee solo en fase draw.
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    var backFromLeft by remember { mutableStateOf(true) }
+    var backRoute by remember { mutableStateOf<Route?>(null) }
+    val topIsPage = stack.isNotEmpty() && stack.last() !is Route.Section
+    PredictiveBackHandler(enabled = topIsPage) { events ->
+        try {
+            events.collect { e ->
+                if (backRoute == null) backRoute = stack.lastOrNull()
+                backProgress = e.progress
+                backFromLeft = e.swipeEdge == BackEventCompat.EDGE_LEFT
+            }
+            nav.pop()
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { animate(backProgress, 0f, animationSpec = spring(0.8f, 600f)) { v, _ -> backProgress = v } }
+            backRoute = null
+            throw e
+        }
+    }
+    // Tras cerrar con el gesto, se mantiene la pagina encogida mientras sale y luego se limpia.
+    LaunchedEffect(stack.size) {
+        if (backRoute != null && backRoute !in stack) { delay(260); backRoute = null; backProgress = 0f }
+    }
+
     CompositionLocalProvider(LocalNav provides nav) {
         Box(Modifier.fillMaxSize().background(Volt.bg)) {
             // Todo lo que queda detras de la hoja se captura como origen del cristal esmerilado.
@@ -113,11 +147,26 @@ fun AppShell(repo: Repository) {
                     transitionSpec = {
                         val forward = targetState.second >= initialState.second
                         if (forward) (slideInHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeIn(tween(160))) togetherWith fadeOut(tween(120))
+                        // Cerrada con el gesto predictivo: la pagina ya esta encogida, solo se desvanece.
+                        else if (backRoute != null) fadeIn(tween(120)) togetherWith fadeOut(tween(180))
                         else fadeIn(tween(140)) togetherWith (slideOutHorizontally(spring(0.9f, 700f)) { it / 3 } + fadeOut(tween(160)))
                     },
                     label = "stack",
                 ) { (route, _) ->
-                    if (route != null) Box(Modifier.fillMaxSize().background(Volt.bg)) { RouteHost(repo, route) }
+                    if (route != null) Box(
+                        Modifier.fillMaxSize()
+                            .graphicsLayer {
+                                val p = if (route == backRoute) backProgress else 0f
+                                if (p > 0f) {
+                                    val s = 1f - 0.1f * p
+                                    scaleX = s; scaleY = s
+                                    translationX = (if (backFromLeft) 1f else -1f) * p * 24.dp.toPx()
+                                    shape = RoundedCornerShape((32f * p).dp)
+                                    clip = true
+                                }
+                            }
+                            .background(Volt.bg),
+                    ) { RouteHost(repo, route) }
                     else Box(Modifier.fillMaxSize())
                 }
 
