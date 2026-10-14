@@ -6,9 +6,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.MonitorWeight
@@ -146,15 +148,22 @@ fun HomeV3(repo: Repository) {
                     MiniDonut(if (u.caloriesTarget > 0) u.consumedKcal / u.caloriesTarget.toFloat() else 0f)
                 }
             }
-            Card(Modifier.weight(1f).fillMaxHeight(), onClick = {
-                Haptics.medium(ctx)
-                scope.launch { repo.saveMetrics(todayKey, DailyMetric(todayKey, waterMl = u.waterMl + 250)) }
-            }) {
-                CardHeader(Icons.Filled.WaterDrop, Volt.water, "Agua", trailing = { Text("+250", style = T.caption, color = Volt.water) })
+            Card(Modifier.weight(1f).fillMaxHeight()) {
+                CardHeader(Icons.Filled.WaterDrop, Volt.water, "Agua", chevron = false)
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ValueUnit(fmt(u.waterMl), "ml", Modifier.weight(1f), unitBelow = true)
-                    WaveLine(listOf(0.2f, 0.5f, 0.35f, 0.8f, 0.55f, 0.9f), Modifier.width(56.dp).height(30.dp), color = Volt.water)
+                    WaterStepButton(
+                        Icons.Filled.Remove, "Quitar 250 ml", Volt.surface2, Volt.textDim,
+                        enabled = u.waterMl > 0,
+                    ) {
+                        val next = (u.waterMl - 250).coerceAtLeast(0)
+                        if (next != u.waterMl) scope.launch { repo.saveMetrics(todayKey, DailyMetric(todayKey, waterMl = next)) }
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    WaterStepButton(Icons.Filled.Add, "Añadir 250 ml", Volt.water, Volt.onAccent) {
+                        scope.launch { repo.saveMetrics(todayKey, DailyMetric(todayKey, waterMl = u.waterMl + 250)) }
+                    }
                 }
             }
         }
@@ -212,6 +221,15 @@ private fun greeting(u: HomeUi): String {
 }
 
 fun trim(d: Double): String = if (d % 1.0 == 0.0) d.toInt().toString() else String.format(ES, "%.1f", d)
+
+@Composable
+private fun WaterStepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, bg: Color, tint: Color, enabled: Boolean = true, onClick: () -> Unit) {
+    Box(
+        Modifier.size(40.dp).clip(CircleShape).background(if (enabled) bg else Volt.surface2)
+            .then(if (enabled) Modifier.tap(0.9f, onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, desc, tint = if (enabled) tint else Volt.textDim.copy(alpha = 0.45f), modifier = Modifier.size(20.dp)) }
+}
 
 @Composable
 private fun QuickTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, tint: Color, modifier: Modifier, onClick: () -> Unit) {

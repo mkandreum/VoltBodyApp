@@ -14,14 +14,17 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Mass
+import com.voltbody.app.data.DailyMetric
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.Period
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.reflect.KClass
@@ -126,6 +129,112 @@ class HealthConnectManager(ctx: Context) {
             avgHr = avgHr,
             weightKg = if (g.canRead(WeightRecord::class)) readLatestWeight() else null,
         )
+    }
+
+    /**
+     * Metricas diarias de [start]..[end] (ambos inclusive) desde Health Connect, lista para volcar al servidor.
+     * Solo incluye los campos con permiso concedido y con datos (> 0). 4 lecturas en total (agregado diario + sueno + HRV + FC reposo).
+     */
+    suspend fun readDaily(start: LocalDate, end: LocalDate): Map<String, DailyMetric> {
+        val c = client ?: return emptyMap()
+        val g = granted()
+        val from = start.atStartOfDay(zone).toInstant()
+        val to = end.plusDays(1).atStartOfDay(zone).toInstant()
+        val range = TimeRangeFilter.between(from, to)
+        val out = LinkedHashMap<String, DailyMetric>()
+        fun at(date: String) = out[date] ?: DailyMetric(date)
+
+        // 1) Agregados por dia (deduplican entre fuentes: Samsung Health, Google Fit...).
+        val metrics = buildSet {
+            if (g.canRead(StepsRecord::class)) add(StepsRecord.COUNT_TOTAL)
+            if (g.canRead(DistanceRecord::class)) add(DistanceRecord.DISTANCE_TOTAL)
+            if (g.canRead(ActiveCaloriesBurnedRecord::class)) add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+            if (g.canRead(TotalCaloriesBurnedRecord::class)) add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
+            if (g.canRead(HeartRateRecord::class)) add(HeartRateRecord.BPM_AVG)
+        }
+        if (metrics.isNotEmpty()) {
+            runCatching {
+                c.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(metrics, range, Period.ofDays(1)))
+            }.getOrNull()?.forEach { row ->
+                val date = row.startTime.toLocalDate().toString()
+                val steps = row.result[StepsRecord.COUNT_TOTAL] ?: 0L
+                val dist = row.result[DistanceRecord.DISTANCE_TOTAL]?.inKilometers ?: 0.0
+                val active = row.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
+                val total = row.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories ?: 0.0
+                val avgHr = row.result[HeartRateRecord.BPM_AVG]?.toInt()
+                out[date] = at(date).copy(
+                    steps = steps.toInt().takeIf { it > 0 },
+                    distanceKm = dist.takeIf { it > 0.0 },
+                    activeKcal = active.takeIf { it > 0.0 },
+                    totalKcal = total.takeIf { it > 0.0 },
+                    avgHr = avgHr?.takeIf { it > 0 },
+                )
+            }
+        }
+
+        // 2) Sueno por dia: sesiones que terminan ese dia, intervalos fusionados (excluye "despierto").
+        if (g.canRead(SleepSessionRecord::class)) {
+            runCatching {
+                c.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range, ascendingOrder = true))
+            }.getOrNull()?.records?.let { sessions ->
+                val byDay = HashMap<String, MutableList<Pair<Instant, Instant>>>()
+                for (s in sessions) {
+                    val intervals = if (s.stages.isEmpty()) {
+                        listOf(s.startTime to s.endTime)
+                    } else {
+                        s.stages.filter {
+                            it.stage != SleepSessionRecord.STAGE_TYPE_AWAKE &&
+                                it.stage != SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED &&
+                                it.stage != SleepSessionRecord.STAGE_TYPE_OUT_OF_BED
+                        }.map { it.startTime to it.endTime }
+                    }
+                    val day = s.endTime.atZone(zone).toLocalDate().toString()
+                    byDay.getOrPut(day) { mutableListOf() }.addAll(intervals)
+                }
+                for ((date, intervals) in byDay) mergedHours(intervals)?.let { out[date] = at(date).copy(sleepHours = it) }
+            }
+        }
+
+        // 3) HRV por dia (media de las lecturas de ese dia).
+        if (g.canRead(HeartRateVariabilityRmssdRecord::class)) {
+            runCatching {
+                c.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, range))
+            }.getOrNull()?.records?.groupBy { it.time.atZone(zone).toLocalDate().toString() }?.forEach { (date, recs) ->
+                val avg = recs.map { it.heartRateVariabilityMillis }.average()
+                if (avg > 0) out[date] = at(date).copy(hrv = Math.round(avg * 10) / 10.0)
+            }
+        }
+
+        // 4) FC en reposo por dia (ultima lectura del dia).
+        if (g.canRead(RestingHeartRateRecord::class)) {
+            runCatching {
+                c.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range, ascendingOrder = true))
+            }.getOrNull()?.records?.groupBy { it.time.atZone(zone).toLocalDate().toString() }?.forEach { (date, recs) ->
+                val bpm = recs.last().beatsPerMinute.toInt()
+                if (bpm > 0) out[date] = at(date).copy(restingHr = bpm)
+            }
+        }
+
+        return out
+    }
+
+    /** Fusiona intervalos solapados y devuelve las horas totales (1 decimal) o null si <= 0. */
+    private fun mergedHours(intervals: List<Pair<Instant, Instant>>): Double? {
+        if (intervals.isEmpty()) return null
+        var totalMs = 0L
+        var cs: Instant? = null
+        var ce: Instant? = null
+        for ((s, e) in intervals.sortedBy { it.first }) {
+            val a = cs
+            val b = ce
+            if (a == null || b == null) { cs = s; ce = e }
+            else if (!s.isAfter(b)) { if (e.isAfter(b)) ce = e }
+            else { totalMs += Duration.between(a, b).toMillis(); cs = s; ce = e }
+        }
+        val a = cs
+        val b = ce
+        if (a != null && b != null) totalMs += Duration.between(a, b).toMillis()
+        return if (totalMs <= 0) null else Math.round(totalMs / 3_600_000.0 * 10) / 10.0
     }
 
     /** Horas dormidas la ultima noche (sesiones que terminan hoy; intervalos fusionados). Null si no hay datos. */

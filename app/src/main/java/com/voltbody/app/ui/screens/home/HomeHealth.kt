@@ -159,6 +159,39 @@ class HealthState(private val ctx: Context) {
 
     suspend fun sleepLastNight(): Double? =
         snap?.sleepHours ?: runCatching { manager.readSleepLastNight() }.getOrNull()
+
+    private var monthSynced = false
+
+    /**
+     * Sincroniza los ultimos [days] dias (ventana rodante) de Health Connect con el servidor, en segundo plano.
+     * Idempotente: se ejecuta una sola vez por sesion y solo sube los dias cuyos valores cambiaron. Hoy lo cubre [refresh].
+     */
+    suspend fun syncLastMonth(repo: Repository?, days: Int = 30) {
+        if (monthSynced || repo == null) return
+        val m = manager
+        if (runCatching { m.availability() }.getOrDefault(-1) != HealthConnectClient.SDK_AVAILABLE) return
+        if (!runCatching { m.hasAnyPermission() }.getOrDefault(false)) return
+        if (!repo.state.value.isAuthenticated) return
+        val today = LocalDate.now()
+        val daily = runCatching { m.readDaily(today.minusDays((days - 1).toLong()), today) }.getOrNull() ?: return
+        monthSynced = true
+        if (daily.isEmpty()) return
+        var saved = 0
+        for ((date, dm) in daily) {
+            if (date == today.toString()) continue // hoy ya lo maneja refresh()
+            if (dm == DailyMetric(date)) continue // dia sin datos utiles
+            val old = repo.state.value.metrics.firstOrNull { it.date == date }
+            if (!metricsDiffer(dm, old)) continue
+            if (runCatching { repo.saveMetrics(date, dm) }.isSuccess) saved++
+        }
+        if (saved > 0) repo.toast("success", "Salud sincronizada", "$saved días importados de Health Connect")
+    }
+
+    private fun metricsDiffer(m: DailyMetric, old: DailyMetric?): Boolean =
+        (m.steps != null && m.steps != old?.steps) || (m.distanceKm != null && m.distanceKm != old?.distanceKm) ||
+            (m.activeKcal != null && m.activeKcal != old?.activeKcal) || (m.totalKcal != null && m.totalKcal != old?.totalKcal) ||
+            (m.sleepHours != null && m.sleepHours != old?.sleepHours) || (m.hrv != null && m.hrv != old?.hrv) ||
+            (m.restingHr != null && m.restingHr != old?.restingHr) || (m.avgHr != null && m.avgHr != old?.avgHr)
 }
 
 @Composable
@@ -166,12 +199,12 @@ fun rememberHealthState(repo: Repository? = null): HealthState {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val hs = remember { HealthState(ctx.applicationContext) }
-    val launcher = rememberLauncherForActivityResult(hs.manager.requestContract()) { scope.launch { hs.refresh(repo) } }
+    val launcher = rememberLauncherForActivityResult(hs.manager.requestContract()) { scope.launch { hs.refresh(repo); hs.syncLastMonth(repo) } }
     hs.requestPermissions = { runCatching { launcher.launch(hs.manager.permissions) } }
     // Solo el flag de autenticacion (no todo el AppState): evita recomponer la pantalla en cada cambio de estado.
     val authedFlow = remember(repo) { (repo?.state?.map { it.isAuthenticated } ?: flowOf(false)).distinctUntilChanged() }
     val authed by authedFlow.collectAsStateWithLifecycle(initialValue = false)
-    LaunchedEffect(authed) { hs.refresh(repo) }
+    LaunchedEffect(authed) { hs.refresh(repo); hs.syncLastMonth(repo) }
     return hs
 }
 
