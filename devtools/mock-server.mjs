@@ -114,6 +114,7 @@ http.createServer(async (req, res) => {
   const rDate = p.match(/^\/api\/data\/recovery\/(.+)$/)?.[1];
   if (rDate) { u.recovery = u.recovery.filter((x) => x.date !== rDate).concat({ date: rDate, ...body }); return json(res, 200, { date: rDate, ...body }); }
   if (p === '/api/ai/generate-plan') return json(res, 200, { routine, diet, insights: P.insights, fallback: true, details: 'Plan de prueba (servidor local)' });
+  if (p === '/api/ai/generate-day-meals') return json(res, 200, { meals: body.diet.meals.map((m) => ({ ...m, name: 'Menú nuevo · ' + m.time, description: 'Menú regenerado (servidor de prueba)' })) });
   if (p === '/api/ai/generate-alternative-meal') return json(res, 200, { ...body.oldMeal, id: body.oldMeal.id + '-alt', name: 'Bowl de quinoa y pavo', description: 'Alternativa equivalente (servidor de prueba)' });
   if (p === '/api/ai/generate-progress-report') return json(res, 200, { overallScore: 72, progressPercent: 40, consistencyPercent: 65, nutritionPercent: 58, trainingExecutionPercent: 70, weeksToVisibleChange: 5, summary: 'Vas por buen camino.', improvements: ['Más proteína'], nextActions: ['Sube 2,5 kg en press'] });
   if (p === '/api/ai/enrich-routine') return json(res, 200, { routine: (body.routine || []).map((d) => ({ ...d, exercises: (d.exercises || []).map((e) => enrichEx(e, body.force === true)) })) });

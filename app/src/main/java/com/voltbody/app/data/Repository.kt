@@ -418,6 +418,14 @@ class Repository(private val ctx: Context) {
         if (others.isNotEmpty()) put("dayMeals", JsonArray(others.map { m -> buildJsonObject { put("name", m.name); put("time", m.time); put("calories", m.calories) } }))
     })
 
+    /** Regenera todas las comidas del dia (mismos ids y horas); devuelve las comidas nuevas. */
+    suspend fun dayMeals(diet: DietPlan): List<Meal> {
+        val res = api.request("POST", "/ai/generate-day-meals", buildJsonObject {
+            put("diet", AppJson.encodeToJsonElement(diet)); put("profile", AppJson.encodeToJsonElement(_state.value.profile))
+        }).jsonObject
+        return AppJson.decodeFromJsonElement(res["meals"] ?: error("Respuesta sin comidas"))
+    }
+
     suspend fun progressReport(): ProgressReport {
         val s = _state.value
         return api.post("/ai/generate-progress-report", buildJsonObject {

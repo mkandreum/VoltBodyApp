@@ -105,6 +105,30 @@ fun NutritionV3(repo: Repository) {
     var swapAlt by remember { mutableStateOf<Meal?>(null) }
     var swapLoading by remember { mutableStateOf(false) }
     var swapApplying by remember { mutableStateOf(false) }
+    var regenerating by remember { mutableStateOf(false) }
+
+    /** Cambia todas las comidas pendientes del dia seleccionado; las ya marcadas se conservan. */
+    fun regenerateDay() {
+        val current = repo.state.value.diet ?: return
+        if (regenerating) return
+        val day = selected
+        val keep = repo.state.value.mealEaten[day.toString()].orEmpty()
+        val pending = current.mealsFor(day).filter { it.id !in keep }
+        if (pending.isEmpty()) return
+        scope.launch {
+            regenerating = true
+            try {
+                val fresh = repo.dayMeals(current.copy(meals = pending, week = emptyList())).filter { f -> pending.any { it.id == f.id } }
+                repo.saveProfile(withPlan = true) { s ->
+                    s.copy(diet = s.diet?.let { d -> fresh.fold(d) { acc, m -> acc.replaceMeal(day, m.id, m) } })
+                }
+                Haptics.success(ctx)
+                repo.toast("success", "Menú del día renovado 🔄", "${pending.size} comidas nuevas para ${if (day == todayDate) "hoy" else "el $weekdayText"}.")
+            } catch (e: Exception) {
+                repo.toast("error", "No se pudo cambiar el menú", e.message ?: "Prueba de nuevo en un momento.")
+            } finally { regenerating = false }
+        }
+    }
 
     fun loadAlternative(meal: Meal) {
         scope.launch {
@@ -269,12 +293,19 @@ fun NutritionV3(repo: Repository) {
                     else -> "${dateText} · ${done.size}/${meals.size}"
                 },
                 Modifier.enter(3),
+                action = when {
+                    regenerating -> "Generando…"
+                    !isToday && !isFuture -> null
+                    done.size < meals.size -> "🔄 Cambiar menú"
+                    else -> null
+                },
+                onAction = { Haptics.medium(ctx); regenerateDay() },
             )
             // key(selected): al cambiar de dia la lista vuelve a entrar escalonada.
             key(selected) { meals.forEachIndexed { i, m ->
                 MealTimelineRow(
                     m, m.id in eaten, m.id == nextId, last = i == meals.lastIndex, modifier = Modifier.enter(4 + i),
-                    canToggle = !isFuture,
+                    canToggle = !isFuture && !regenerating,
                     onToggle = {
                         val nowEaten = m.id !in eaten
                         if (nowEaten) {
@@ -288,7 +319,7 @@ fun NutritionV3(repo: Repository) {
                             if (nowEaten) com.voltbody.app.util.unlockNewAchievements(repo)
                         }
                     },
-                    onSwap = { swapMeal = m; loadAlternative(m) },
+                    onSwap = { if (!regenerating) { swapMeal = m; loadAlternative(m) } },
                 )
             } }
         }
